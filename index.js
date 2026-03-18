@@ -1,4 +1,7 @@
 const axios = require("axios");
+const fs = require("fs");
+
+const FILE = "data.json";
 
 async function getCrypto() {
   try {
@@ -11,21 +14,45 @@ async function getCrypto() {
       }
     });
 
-    console.log("Total coin dari API:", res.data.length);
+    let oldData = {};
+    if (fs.existsSync(FILE)) {
+      oldData = JSON.parse(fs.readFileSync(FILE));
+    }
 
-    const coins = res.data.filter(c =>
-      c.price_change_percentage_24h > 0.3 &&
-      c.total_volume > 1000000
-    );
+    let newData = {};
+    let results = [];
 
-    console.log("Coin lolos filter:", coins.length);
-    console.log("=== HASIL SCAN ===");
+    res.data.forEach(c => {
+      const symbol = c.symbol.toUpperCase();
+      const price = c.current_price;
 
-    coins.slice(0, 10).forEach(c => {
-      console.log(
-        `${c.symbol.toUpperCase()} | Harga: $${c.current_price} | Change: ${c.price_change_percentage_24h}% | Volume: ${c.total_volume}`
-      );
+      newData[symbol] = price;
+
+      if (oldData[symbol]) {
+        const oldPrice = oldData[symbol];
+        const change = ((price - oldPrice) / oldPrice) * 100;
+
+        if (change > 0.3) {
+          results.push({
+            symbol,
+            change: change.toFixed(2),
+            price
+          });
+        }
+      }
     });
+
+    console.log("=== CHANGE 10 MENIT ===");
+
+    results
+      .sort((a, b) => b.change - a.change)
+      .slice(0, 10)
+      .forEach(c => {
+        console.log(`${c.symbol} | ${c.change}% | Harga: $${c.price}`);
+      });
+
+    // simpan data baru
+    fs.writeFileSync(FILE, JSON.stringify(newData, null, 2));
 
   } catch (err) {
     console.error("Error:", err.message);

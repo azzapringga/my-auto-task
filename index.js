@@ -8,13 +8,11 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // ==============================
-// 📩 FUNCTION TELEGRAM DENGAN DEBUG
+// 📩 FUNCTION TELEGRAM
 // ==============================
 async function sendTelegram(message) {
   if (!TELEGRAM_TOKEN || !CHAT_ID) {
     console.log("❌ Telegram config tidak ada");
-    console.log("TOKEN:", TELEGRAM_TOKEN ? "OK" : "MISSING");
-    console.log("CHAT_ID:", CHAT_ID ? "OK" : "MISSING");
     return;
   }
 
@@ -50,20 +48,35 @@ async function getCrypto() {
 
     console.timeEnd("Fetch API");
 
+    // ambil data lama
     let oldData = {};
     if (fs.existsSync(FILE)) {
       oldData = JSON.parse(fs.readFileSync(FILE));
     }
 
     let newData = {};
-    let results = [];
+    let early = [], beruntun = [], big = [];
 
     res.data.forEach(c => {
       const symbol = c.symbol.toUpperCase();
       const price = c.current_price;
       const isCheap = price < 1;
 
-      // 🔁 Pump beruntun
+      // ==============================
+      // 🔹 EARLY PUMP: kenaikan kecil < 10% 1 periode
+      // ==============================
+      if (oldData[symbol] && oldData[symbol].length >= 1) {
+        const pricePrev = oldData[symbol].slice(-1)[0];
+        const change = ((price - pricePrev) / pricePrev) * 100;
+
+        if (isCheap && change >= 0.1 && change < 0.5) {
+          early.push({ symbol, change, price });
+        }
+      }
+
+      // ==============================
+      // 🔁 PUMP BERUNTUN: dua periode
+      // ==============================
       if (oldData[symbol] && oldData[symbol].length === 2) {
         const [price20m, price10m] = oldData[symbol];
         const priceNow = price;
@@ -78,7 +91,7 @@ async function getCrypto() {
           c.total_volume > 500000 &&
           c.price_change_percentage_24h > 0
         ) {
-          results.push({
+          beruntun.push({
             symbol,
             change1,
             change2,
@@ -89,7 +102,16 @@ async function getCrypto() {
         }
       }
 
-      // 💾 Simpan data terbaru
+      // ==============================
+      // 💥 BIG PUMP: kenaikan besar >1% + volume tinggi
+      // ==============================
+      if (isCheap && price > 1.1 * (oldData[symbol]?.slice(-1)[0] || 0) && c.total_volume > 1000000) {
+        big.push({ symbol, price, volume: c.total_volume });
+      }
+
+      // ==============================
+      // 💾 SIMPAN DATA
+      // ==============================
       let history = oldData[symbol] || [];
       if (!Array.isArray(history)) history = [history];
       const updated = [...history, price].slice(-2);
@@ -97,36 +119,49 @@ async function getCrypto() {
     });
 
     // ==============================
-    // 📊 OUTPUT & MESSAGE TELEGRAM
+    // 📊 OUTPUT & MESSAGE
     // ==============================
-    console.log("==================================");
-    console.log("🚀 MID CAP PUMP DETECTOR (< $1)");
-    console.log("==================================");
-    console.log("Total coin:", res.data.length);
-    console.log("Terdeteksi:", results.length);
-    //await sendTelegram("✅ BOT SUDAH TERHUBUNG - TEST");
-
     let message = "🚀 CRYPTO PUMP ALERT\n\n";
 
-    if (results.length > 0) {
-      results
-        .sort((a, b) => b.totalChange - a.totalChange)
-        .slice(0, 5)
-        .forEach(c => {
-          const line = `${c.symbol} | +${c.totalChange.toFixed(2)}% | Vol: ${c.volume}`;
-          console.log(line);
-          message += line + "\n";
-        });
-
-      // Kirim ke Telegram
-      await sendTelegram(message);
-    } else {
-      console.log("Tidak ada pump beruntun terdeteksi.");
-      // 🔹 Untuk test Telegram, bisa aktifkan baris ini sementara:
-      // await sendTelegram("✅ BOT SUDAH TERHUBUNG - TEST");
+    if (early.length > 0) {
+      message += "🟢 EARLY PUMP:\n";
+      early.forEach(c => {
+        const line = `${c.symbol} | +${c.change.toFixed(2)}% | $${c.price}`;
+        message += line + "\n";
+        console.log(line);
+      });
+      message += "\n";
     }
 
-    // 💾 Simpan data baru
+    if (beruntun.length > 0) {
+      message += "🟡 PUMP BERUNTUN:\n";
+      beruntun.forEach(c => {
+        const line = `${c.symbol} | +${c.totalChange.toFixed(2)}% | Vol: ${c.volume} | $${c.price}`;
+        message += line + "\n";
+        console.log(line);
+      });
+      message += "\n";
+    }
+
+    if (big.length > 0) {
+      message += "🔴 BIG PUMP:\n";
+      big.forEach(c => {
+        const line = `${c.symbol} | Vol: ${c.volume} | $${c.price}`;
+        message += line + "\n";
+        console.log(line);
+      });
+      message += "\n";
+    }
+
+    if (early.length + beruntun.length + big.length > 0) {
+      await sendTelegram(message);
+    } else {
+      console.log("Tidak ada pump terdeteksi saat ini.");
+    }
+
+    await sendTelegram("✅ TEST BOT 3 LAYER");
+
+    // 💾 simpan data baru
     fs.writeFileSync(FILE, JSON.stringify(newData, null, 2));
 
   } catch (err) {

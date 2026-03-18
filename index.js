@@ -104,7 +104,7 @@ async function getCrypto() {
     console.log("==================================");
     console.log("Total coin:", res.data.length);
     console.log("Terdeteksi:", results.length);
-    await sendTelegram("✅ BOT SUDAH TERHUBUNG - TEST");
+    //await sendTelegram("✅ BOT SUDAH TERHUBUNG - TEST");
 
     let message = "🚀 CRYPTO PUMP ALERT\n\n";
 

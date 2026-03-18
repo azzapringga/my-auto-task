@@ -13,6 +13,7 @@ const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 async function sendTelegram(message) {
   if (!TELEGRAM_TOKEN || !CHAT_ID) {
     console.log("❌ Telegram config tidak ada");
+    await sendTelegram("✅ BOT SUDAH TERHUBUNG - TEST");
     return;
   }
 

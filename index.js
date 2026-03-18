@@ -3,30 +3,31 @@ const fs = require("fs");
 
 const FILE = "data.json";
 
-// 🔥 ambil dari GitHub Secrets
+// Ambil dari GitHub Secrets
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // ==============================
-// 📩 FUNCTION TELEGRAM
+// 📩 FUNCTION TELEGRAM DENGAN DEBUG
 // ==============================
 async function sendTelegram(message) {
   if (!TELEGRAM_TOKEN || !CHAT_ID) {
     console.log("❌ Telegram config tidak ada");
-    await sendTelegram("✅ BOT SUDAH TERHUBUNG - TEST");
+    console.log("TOKEN:", TELEGRAM_TOKEN ? "OK" : "MISSING");
+    console.log("CHAT_ID:", CHAT_ID ? "OK" : "MISSING");
     return;
   }
 
   const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
 
   try {
-    await axios.post(url, {
+    const res = await axios.post(url, {
       chat_id: CHAT_ID,
       text: message,
     });
-    console.log("✅ Pesan Telegram terkirim");
+    console.log("✅ Pesan Telegram terkirim:", res.data.ok ? "OK" : "FAILED");
   } catch (err) {
-    console.error("❌ Error Telegram:", err.message);
+    console.error("❌ Error Telegram:", err.response?.data || err.message);
   }
 }
 
@@ -42,7 +43,7 @@ async function getCrypto() {
         vs_currency: "usd",
         order: "market_cap_desc",
         per_page: 100,
-        page: 2
+        page: 2 // mid cap
       },
       timeout: 10000
     });
@@ -62,9 +63,7 @@ async function getCrypto() {
       const price = c.current_price;
       const isCheap = price < 1;
 
-      // ==============================
-      // 🔥 PUMP BERUNTUN
-      // ==============================
+      // 🔁 Pump beruntun
       if (oldData[symbol] && oldData[symbol].length === 2) {
         const [price20m, price10m] = oldData[symbol];
         const priceNow = price;
@@ -90,57 +89,44 @@ async function getCrypto() {
         }
       }
 
-      // ==============================
-      // 💾 SIMPAN DATA
-      // ==============================
-      if (!oldData[symbol]) {
-        newData[symbol] = [price];
-      } else {
-        let history = oldData[symbol];
-
-        if (!Array.isArray(history)) {
-          history = [history];
-        }
-
-        const updated = [...history, price].slice(-2);
-        newData[symbol] = updated;
-      }
+      // 💾 Simpan data terbaru
+      let history = oldData[symbol] || [];
+      if (!Array.isArray(history)) history = [history];
+      const updated = [...history, price].slice(-2);
+      newData[symbol] = updated;
     });
 
     // ==============================
-    // 📊 OUTPUT
+    // 📊 OUTPUT & MESSAGE TELEGRAM
     // ==============================
     console.log("==================================");
     console.log("🚀 MID CAP PUMP DETECTOR (< $1)");
     console.log("==================================");
     console.log("Total coin:", res.data.length);
     console.log("Terdeteksi:", results.length);
+    await sendTelegram("✅ BOT SUDAH TERHUBUNG - TEST");
 
     let message = "🚀 CRYPTO PUMP ALERT\n\n";
 
-    results
-      .sort((a, b) => b.totalChange - a.totalChange)
-      .slice(0, 5)
-      .forEach(c => {
-        const line = `${c.symbol} | +${c.totalChange.toFixed(2)}% | Vol: ${c.volume}`;
-        console.log(line);
-        message += line + "\n";
-      });
-
-    if (results.length === 0) {
-      console.log("Tidak ada pump beruntun terdeteksi.");
-    }
-
-    // ==============================
-    // 📩 KIRIM TELEGRAM (HANYA JIKA ADA HASIL)
-    // ==============================
     if (results.length > 0) {
+      results
+        .sort((a, b) => b.totalChange - a.totalChange)
+        .slice(0, 5)
+        .forEach(c => {
+          const line = `${c.symbol} | +${c.totalChange.toFixed(2)}% | Vol: ${c.volume}`;
+          console.log(line);
+          message += line + "\n";
+        });
+
+      // Kirim ke Telegram
       await sendTelegram(message);
+    } else {
+      console.log("Tidak ada pump beruntun terdeteksi.");
+      // 🔹 Untuk test Telegram, bisa aktifkan baris ini sementara:
+      // await sendTelegram("✅ BOT SUDAH TERHUBUNG - TEST");
     }
 
-    // ==============================
-    // 💾 SAVE DATA
-    // ==============================
+    // 💾 Simpan data baru
     fs.writeFileSync(FILE, JSON.stringify(newData, null, 2));
 
   } catch (err) {

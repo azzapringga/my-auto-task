@@ -1,8 +1,8 @@
-name: Auto Crypto Scan
+name: Auto Crypto Pump Detector
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/10 * * * *'   # setiap 10 menit
   workflow_dispatch:
 
 jobs:
@@ -10,16 +10,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Clone repo
+    - name: Checkout repository
       uses: actions/checkout@v4
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: 20
+        cache: 'npm'
 
     - name: Install dependencies
       run: npm install
 
     - name: Run script
       run: node index.js
+
+    # 🔥 bagian penting: commit data.json
+    - name: Commit & Push data.json
+      run: |
+        git config --global user.name "crypto-bot"
+        git config --global user.email "bot@github.com"
+        git add data.json
+        git commit -m "update data $(date)" || echo "No changes"
+        git push

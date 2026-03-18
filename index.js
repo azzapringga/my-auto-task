@@ -12,7 +12,7 @@ async function getCrypto() {
         vs_currency: "usd",
         order: "market_cap_desc",
         per_page: 100,
-        page: 2 // 🔥 MID CAP (rank 101–200)
+        page: 2 // 🔥 mid cap
       },
       timeout: 10000
     });
@@ -32,11 +32,11 @@ async function getCrypto() {
       const symbol = c.symbol.toUpperCase();
       const price = c.current_price;
 
-      // 🔥 FILTER HARGA < $1
-      if (price >= 1) return;
+      // tandai koin murah
+      const isCheap = price < 1;
 
       // ==============================
-      // 🔁 PUMP BERUNTUN
+      // 🔁 PUMP BERUNTUN (HANYA FILTER)
       // ==============================
       if (oldData[symbol] && oldData[symbol].length === 2) {
         const [price20m, price10m] = oldData[symbol];
@@ -45,10 +45,10 @@ async function getCrypto() {
         const change1 = ((price10m - price20m) / price20m) * 100;
         const change2 = ((priceNow - price10m) / price10m) * 100;
 
-        // 🔥 FILTER
         if (
-          change1 > 0.2 &&
-          change2 > 0.2 &&
+          isCheap &&                 // 🔥 filter di sini (bukan di atas)
+          change1 > 0.15 &&
+          change2 > 0.15 &&
           c.total_volume > 500000 &&
           c.price_change_percentage_24h > 0
         ) {
@@ -64,14 +64,14 @@ async function getCrypto() {
       }
 
       // ==============================
-      // 💾 SIMPAN DATA (FIX FORMAT)
+      // 💾 SIMPAN DATA (SEMUA KOIN)
       // ==============================
       if (!oldData[symbol]) {
         newData[symbol] = [price];
       } else {
         let history = oldData[symbol];
 
-        // 🔥 FIX: kalau masih format lama
+        // fix format lama
         if (!Array.isArray(history)) {
           history = [history];
         }
@@ -87,7 +87,7 @@ async function getCrypto() {
     console.log("==================================");
     console.log("🚀 MID CAP PUMP DETECTOR (< $1)");
     console.log("==================================");
-    console.log("Total coin (mid cap):", res.data.length);
+    console.log("Total coin (API):", res.data.length);
     console.log("Terdeteksi:", results.length);
     console.log("");
 

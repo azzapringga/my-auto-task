@@ -1,0 +1,25 @@
+name: Auto Crypto Scan
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # setiap 10 menit
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Clone repo
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run script
+      run: node index.js

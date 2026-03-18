@@ -7,6 +7,9 @@ const FILE = "data.json";
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
+// Kurs Rupiah
+const USD_TO_IDR = 15000;
+
 // ==============================
 // 📩 FUNCTION TELEGRAM
 // ==============================
@@ -22,6 +25,7 @@ async function sendTelegram(message) {
     const res = await axios.post(url, {
       chat_id: CHAT_ID,
       text: message,
+      parse_mode: "Markdown"
     });
     console.log("✅ Pesan Telegram terkirim:", res.data.ok ? "OK" : "FAILED");
   } catch (err) {
@@ -48,7 +52,6 @@ async function getCrypto() {
 
     console.timeEnd("Fetch API");
 
-    // ambil data lama
     let oldData = {};
     if (fs.existsSync(FILE)) {
       oldData = JSON.parse(fs.readFileSync(FILE));
@@ -59,12 +62,11 @@ async function getCrypto() {
 
     res.data.forEach(c => {
       const symbol = c.symbol.toUpperCase();
-      const price = c.current_price;
-      const isCheap = price < 1;
+      const priceUSD = c.current_price;
+      const price = priceUSD * USD_TO_IDR; // ubah ke Rupiah
+      const isCheap = price < 15000; // filter koin murah < Rp 15,000
 
-      // ==============================
-      // 🔹 EARLY PUMP: kenaikan kecil < 10% 1 periode
-      // ==============================
+      // 🔹 EARLY PUMP
       if (oldData[symbol] && oldData[symbol].length >= 1) {
         const pricePrev = oldData[symbol].slice(-1)[0];
         const change = ((price - pricePrev) / pricePrev) * 100;
@@ -74,9 +76,7 @@ async function getCrypto() {
         }
       }
 
-      // ==============================
-      // 🔁 PUMP BERUNTUN: dua periode
-      // ==============================
+      // 🔁 PUMP BERUNTUN
       if (oldData[symbol] && oldData[symbol].length === 2) {
         const [price20m, price10m] = oldData[symbol];
         const priceNow = price;
@@ -88,7 +88,7 @@ async function getCrypto() {
           isCheap &&
           change1 > 0.15 &&
           change2 > 0.15 &&
-          c.total_volume > 500000 &&
+          c.total_volume * USD_TO_IDR > 500000000 &&
           c.price_change_percentage_24h > 0
         ) {
           beruntun.push({
@@ -97,21 +97,17 @@ async function getCrypto() {
             change2,
             totalChange: change1 + change2,
             price: priceNow,
-            volume: c.total_volume
+            volume: c.total_volume * USD_TO_IDR
           });
         }
       }
 
-      // ==============================
-      // 💥 BIG PUMP: kenaikan besar >1% + volume tinggi
-      // ==============================
-      if (isCheap && price > 1.1 * (oldData[symbol]?.slice(-1)[0] || 0) && c.total_volume > 1000000) {
-        big.push({ symbol, price, volume: c.total_volume });
+      // 💥 BIG PUMP
+      if (isCheap && price > 1.1 * (oldData[symbol]?.slice(-1)[0] || 0) && c.total_volume * USD_TO_IDR > 1000000000) {
+        big.push({ symbol, price, volume: c.total_volume * USD_TO_IDR });
       }
 
-      // ==============================
-      // 💾 SIMPAN DATA
-      // ==============================
+      // 💾 Simpan data baru
       let history = oldData[symbol] || [];
       if (!Array.isArray(history)) history = [history];
       const updated = [...history, price].slice(-2);
@@ -119,36 +115,35 @@ async function getCrypto() {
     });
 
     // ==============================
-    // 📊 OUTPUT & MESSAGE
+    // 📊 FORMAT PESAN TELEGRAM
     // ==============================
-    let message = "🚀 CRYPTO PUMP ALERT\n\n";
+    let message = "*🚀 CRYPTO PUMP ALERT (IDR)*\n\n";
+
+    const formatLine = (c, isBeruntun = false) => {
+      const priceStr = `Rp${c.price.toLocaleString("id-ID")}`;
+      if (isBeruntun) {
+        return `*${c.symbol}* | 🔁 +${c.totalChange.toFixed(2)}% | Vol: Rp${c.volume.toLocaleString("id-ID")} | ${priceStr}`;
+      }
+      return `*${c.symbol}* | +${(c.change || 0).toFixed(2)}% | ${priceStr}`;
+    };
 
     if (early.length > 0) {
-      message += "🟢 EARLY PUMP:\n";
-      early.forEach(c => {
-        const line = `${c.symbol} | +${c.change.toFixed(2)}% | $${c.price}`;
-        message += line + "\n";
-        console.log(line);
-      });
+      message += "🟢 *EARLY PUMP*\n";
+      early.forEach(c => message += formatLine(c) + "\n");
       message += "\n";
     }
 
     if (beruntun.length > 0) {
-      message += "🟡 PUMP BERUNTUN:\n";
-      beruntun.forEach(c => {
-        const line = `${c.symbol} | +${c.totalChange.toFixed(2)}% | Vol: ${c.volume} | $${c.price}`;
-        message += line + "\n";
-        console.log(line);
-      });
+      message += "🟡 *PUMP BERUNTUN*\n";
+      beruntun.forEach(c => message += formatLine(c, true) + "\n");
       message += "\n";
     }
 
     if (big.length > 0) {
-      message += "🔴 BIG PUMP:\n";
+      message += "🔴 *BIG PUMP*\n";
       big.forEach(c => {
-        const line = `${c.symbol} | Vol: ${c.volume} | $${c.price}`;
-        message += line + "\n";
-        console.log(line);
+        const priceStr = `Rp${c.price.toLocaleString("id-ID")}`;
+        message += `*${c.symbol}* | Vol: Rp${c.volume.toLocaleString("id-ID")} | ${priceStr}\n`;
       });
       message += "\n";
     }
@@ -159,8 +154,7 @@ async function getCrypto() {
       console.log("Tidak ada pump terdeteksi saat ini.");
     }
 
-
-    // 💾 simpan data baru
+    // 💾 simpan data JSON
     fs.writeFileSync(FILE, JSON.stringify(newData, null, 2));
 
   } catch (err) {

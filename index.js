@@ -59,12 +59,18 @@ async function getCrypto() {
       // 💾 SIMPAN 2 DATA TERAKHIR
       // ==============================
       if (!oldData[symbol]) {
-        newData[symbol] = [price];
-      } else {
-        const history = oldData[symbol];
-        const updated = [...history, price].slice(-2);
-        newData[symbol] = updated;
-      }
+  newData[symbol] = [price];
+} else {
+  let history = oldData[symbol];
+
+  // 🔥 FIX: kalau masih format lama (number)
+  if (!Array.isArray(history)) {
+    history = [history];
+  }
+
+  const updated = [...history, price].slice(-2);
+  newData[symbol] = updated;
+}
     });
 
     // ==============================

@@ -159,7 +159,6 @@ async function getCrypto() {
       console.log("Tidak ada pump terdeteksi saat ini.");
     }
 
-    await sendTelegram("✅ TEST BOT 3 LAYER");
 
     // 💾 simpan data baru
     fs.writeFileSync(FILE, JSON.stringify(newData, null, 2));

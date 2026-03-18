@@ -3,6 +3,35 @@ const fs = require("fs");
 
 const FILE = "data.json";
 
+// 🔥 ambil dari GitHub Secrets
+const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+// ==============================
+// 📩 FUNCTION TELEGRAM
+// ==============================
+async function sendTelegram(message) {
+  if (!TELEGRAM_TOKEN || !CHAT_ID) {
+    console.log("❌ Telegram config tidak ada");
+    return;
+  }
+
+  const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+
+  try {
+    await axios.post(url, {
+      chat_id: CHAT_ID,
+      text: message,
+    });
+    console.log("✅ Pesan Telegram terkirim");
+  } catch (err) {
+    console.error("❌ Error Telegram:", err.message);
+  }
+}
+
+// ==============================
+// 🚀 MAIN FUNCTION
+// ==============================
 async function getCrypto() {
   try {
     console.time("Fetch API");
@@ -12,14 +41,13 @@ async function getCrypto() {
         vs_currency: "usd",
         order: "market_cap_desc",
         per_page: 100,
-        page: 2 // 🔥 mid cap
+        page: 2
       },
       timeout: 10000
     });
 
     console.timeEnd("Fetch API");
 
-    // ambil data lama
     let oldData = {};
     if (fs.existsSync(FILE)) {
       oldData = JSON.parse(fs.readFileSync(FILE));
@@ -31,12 +59,10 @@ async function getCrypto() {
     res.data.forEach(c => {
       const symbol = c.symbol.toUpperCase();
       const price = c.current_price;
-
-      // tandai koin murah
       const isCheap = price < 1;
 
       // ==============================
-      // 🔁 PUMP BERUNTUN (HANYA FILTER)
+      // 🔥 PUMP BERUNTUN
       // ==============================
       if (oldData[symbol] && oldData[symbol].length === 2) {
         const [price20m, price10m] = oldData[symbol];
@@ -46,7 +72,7 @@ async function getCrypto() {
         const change2 = ((priceNow - price10m) / price10m) * 100;
 
         if (
-          isCheap &&                 // 🔥 filter di sini (bukan di atas)
+          isCheap &&
           change1 > 0.15 &&
           change2 > 0.15 &&
           c.total_volume > 500000 &&
@@ -64,14 +90,13 @@ async function getCrypto() {
       }
 
       // ==============================
-      // 💾 SIMPAN DATA (SEMUA KOIN)
+      // 💾 SIMPAN DATA
       // ==============================
       if (!oldData[symbol]) {
         newData[symbol] = [price];
       } else {
         let history = oldData[symbol];
 
-        // fix format lama
         if (!Array.isArray(history)) {
           history = [history];
         }
@@ -87,17 +112,18 @@ async function getCrypto() {
     console.log("==================================");
     console.log("🚀 MID CAP PUMP DETECTOR (< $1)");
     console.log("==================================");
-    console.log("Total coin (API):", res.data.length);
+    console.log("Total coin:", res.data.length);
     console.log("Terdeteksi:", results.length);
-    console.log("");
+
+    let message = "🚀 CRYPTO PUMP ALERT\n\n";
 
     results
       .sort((a, b) => b.totalChange - a.totalChange)
-      .slice(0, 10)
+      .slice(0, 5)
       .forEach(c => {
-        console.log(
-          `${c.symbol} | 10m1: +${c.change1.toFixed(2)}% | 10m2: +${c.change2.toFixed(2)}% | Total: +${c.totalChange.toFixed(2)}% | Vol: ${c.volume} | $${c.price}`
-        );
+        const line = `${c.symbol} | +${c.totalChange.toFixed(2)}% | Vol: ${c.volume}`;
+        console.log(line);
+        message += line + "\n";
       });
 
     if (results.length === 0) {
@@ -105,7 +131,14 @@ async function getCrypto() {
     }
 
     // ==============================
-    // 💾 SIMPAN DATA BARU
+    // 📩 KIRIM TELEGRAM (HANYA JIKA ADA HASIL)
+    // ==============================
+    if (results.length > 0) {
+      await sendTelegram(message);
+    }
+
+    // ==============================
+    // 💾 SAVE DATA
     // ==============================
     fs.writeFileSync(FILE, JSON.stringify(newData, null, 2));
 

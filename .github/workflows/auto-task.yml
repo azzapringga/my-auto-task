@@ -2,7 +2,7 @@ name: Auto Crypto Scan
 
 on:
   schedule:
-    - cron: '*/10 * * * *'   # setiap 10 menit
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -11,12 +11,12 @@ jobs:
 
     steps:
     - name: Clone repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
-        node-version: 18
+        node-version: 20
 
     - name: Install dependencies
       run: npm install

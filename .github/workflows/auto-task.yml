@@ -2,8 +2,11 @@ name: Auto Crypto Pump Detector
 
 on:
   schedule:
-    - cron: '*/10 * * * *'   # setiap 10 menit
+    - cron: '*/10 * * * *'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   run-bot:
@@ -25,7 +28,6 @@ jobs:
     - name: Run script
       run: node index.js
 
-    # 🔥 bagian penting: commit data.json
     - name: Commit & Push data.json
       run: |
         git config --global user.name "crypto-bot"

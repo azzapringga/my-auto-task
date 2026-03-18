@@ -36,9 +36,9 @@ async function getCrypto() {
 
         // 🔥 FILTER PUMP DETECTOR
         if (
-          change > 0.2 // &&                    // naik cepat (10 menit)
-          // c.total_volume > 1000000 &&       // volume besar
-          // c.price_change_percentage_24h > 1 // tren harian naik
+          change > 0.3  &&                    // naik cepat (10 menit)
+          c.total_volume > 500000 &&       // volume besar
+          c.price_change_percentage_24h > 1 // tren harian naik
         ) {
           results.push({
             symbol,

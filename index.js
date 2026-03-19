@@ -102,7 +102,7 @@ async function getCrypto() {
         }
       }
 
-      // 🔥 BIG PUMP (filter lebih ketat)
+      // 🔥 BIG PUMP (filter ketat + persentase valid)
       if (
         isCheap &&
         oldData[symbol]?.length >= 2 &&                       // harus punya 2 data sebelumnya
@@ -110,13 +110,20 @@ async function getCrypto() {
         c.total_volume * USD_TO_IDR > 1000000000 &&         // volume > 1 miliar IDR
         c.price_change_percentage_24h > 0                  // tren 24 jam positif
       ) {
-        // optional: filter volume relatif dibanding rata-rata 24 jam
+        const oldPrice = oldData[symbol][0];
+
+        // Hitung % change hanya jika harga historis > 0
+        const changePercent = oldPrice > 0
+          ? ((price - oldPrice) / oldPrice * 100).toFixed(2) + "%"
+          : "0%";
+
+        // filter volume relatif dibanding rata-rata 24 jam
         if (c.total_volume / (c.total_volume_24h || 1) > 2) {
           big.push({
             symbol,
             price,
             volume: c.total_volume * USD_TO_IDR,
-            change: ((price - oldData[symbol][0]) / oldData[symbol][0] * 100).toFixed(2) + "%"
+            change: changePercent
           });
         }
       }
@@ -138,7 +145,7 @@ async function getCrypto() {
       if (isBeruntun) {
         return `*${c.symbol}* | 🔼 +${c.totalChange.toFixed(2)}% | Vol: Rp${c.volume.toLocaleString("id-ID")} | ${priceStr}`;
       }
-      return `*${c.symbol}* | +${(c.change || 0).toFixed(2)}% | ${priceStr}`;
+      return `*${c.symbol}* | +${(c.change || 0)} | ${priceStr}`;
     };
 
     if (early.length > 0) {

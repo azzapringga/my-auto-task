@@ -1,33 +1,41 @@
 name: Auto Crypto Scan
 
-# 🔹 Jalankan setiap 10 menit dan bisa manual trigger
 on:
   schedule:
     - cron: "*/10 * * * *"  # setiap 10 menit
-  workflow_dispatch:        # bisa dijalankan manual
+  workflow_dispatch:  # manual trigger
 
 jobs:
   crypto-scan:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repo
+      # 1. Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js
+      # 2. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      # 3️⃣ Install dependencies
+      # 3. Install dependencies
       - name: Install dependencies
         run: npm install axios
 
-      # 4️⃣ Run scan script
+      # 4. Run scan script
       - name: Run Crypto Scan
         run: node index.js
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      # 5. Commit updated data.json agar persist di repo
+      - name: Commit updated data.json
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          git diff-index --quiet HEAD || git commit -m "Update data.json"
+          git push

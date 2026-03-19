@@ -10,6 +10,9 @@ const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 // Kurs Rupiah
 const USD_TO_IDR = 15000;
 
+// Threshold BIG PUMP (naik minimal dibanding harga 10 menit lalu)
+const BIG_PUMP_THRESHOLD = 1.05; // 5% naik
+
 // ==============================
 // 📡 FUNCTION TELEGRAM
 // ==============================
@@ -102,12 +105,12 @@ async function getCrypto() {
         }
       }
 
-      // 🔥 BIG PUMP
+      // 🔥 BIG PUMP (flexible threshold)
       if (
         isCheap &&
         oldData[symbol]?.length >= 2 &&
         oldData[symbol][0] > 0 &&
-        priceUSD > 1.1 * oldData[symbol][0] &&
+        priceUSD > BIG_PUMP_THRESHOLD * oldData[symbol][0] &&
         c.total_volume * USD_TO_IDR > 1000000000 &&
         c.price_change_percentage_24h > 0
       ) {

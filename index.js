@@ -63,26 +63,26 @@ async function getCrypto() {
     res.data.forEach(c => {
       const symbol = c.symbol.toUpperCase();
       const priceUSD = c.current_price;
-      const price = priceUSD * USD_TO_IDR; // ubah ke Rupiah
-      const isCheap = price < 15000 && price > 50; // filter koin murah tapi tidak terlalu kecil
+      const priceIDR = priceUSD * USD_TO_IDR;
+      const isCheap = priceIDR < 15000 && priceIDR > 50;
 
       // 🟢 EARLY PUMP
       if (oldData[symbol] && oldData[symbol].length >= 1) {
-        const pricePrev = oldData[symbol].slice(-1)[0];
-        const change = ((price - pricePrev) / pricePrev) * 100;
+        const oldPriceUSD = oldData[symbol].slice(-1)[0];
+        const change = oldPriceUSD > 0
+          ? ((priceUSD - oldPriceUSD)/oldPriceUSD * 100)
+          : 0;
 
         if (isCheap && change >= 0.1 && change < 0.5) {
-          early.push({ symbol, change, price });
+          early.push({ symbol, change, price: priceIDR });
         }
       }
 
       // 🔼 PUMP BERUNTUN
       if (oldData[symbol] && oldData[symbol].length === 2) {
-        const [price20m, price10m] = oldData[symbol];
-        const priceNow = price;
-
-        const change1 = ((price10m - price20m) / price20m) * 100;
-        const change2 = ((priceNow - price10m) / price10m) * 100;
+        const [price20mUSD, price10mUSD] = oldData[symbol];
+        const change1 = price20mUSD > 0 ? ((price10mUSD - price20mUSD)/price20mUSD*100) : 0;
+        const change2 = price10mUSD > 0 ? ((priceUSD - price10mUSD)/price10mUSD*100) : 0;
 
         if (
           isCheap &&
@@ -96,42 +96,38 @@ async function getCrypto() {
             change1,
             change2,
             totalChange: change1 + change2,
-            price: priceNow,
+            price: priceIDR,
             volume: c.total_volume * USD_TO_IDR
           });
         }
       }
 
-      // 🔥 BIG PUMP (filter ketat + persentase valid)
+      // 🔥 BIG PUMP
       if (
         isCheap &&
-        oldData[symbol]?.length >= 2 &&                       // harus punya 2 data sebelumnya
-        price > 1.1 * oldData[symbol][0] &&                  // naik >10% dari 20 menit lalu
-        c.total_volume * USD_TO_IDR > 1000000000 &&         // volume > 1 miliar IDR
-        c.price_change_percentage_24h > 0                  // tren 24 jam positif
+        oldData[symbol]?.length >= 2 &&
+        oldData[symbol][0] > 0 &&
+        priceUSD > 1.1 * oldData[symbol][0] &&
+        c.total_volume * USD_TO_IDR > 1000000000 &&
+        c.price_change_percentage_24h > 0
       ) {
-        const oldPrice = oldData[symbol][0];
+        const oldPriceUSD = oldData[symbol][0];
+        const changePercent = ((priceUSD - oldPriceUSD)/oldPriceUSD*100).toFixed(2) + "%";
 
-        // Hitung % change hanya jika harga historis > 0
-        const changePercent = oldPrice > 0
-          ? ((price - oldPrice) / oldPrice * 100).toFixed(2) + "%"
-          : "0%";
-
-        // filter volume relatif dibanding rata-rata 24 jam
         if (c.total_volume / (c.total_volume_24h || 1) > 2) {
           big.push({
             symbol,
-            price,
+            price: priceIDR,
             volume: c.total_volume * USD_TO_IDR,
             change: changePercent
           });
         }
       }
 
-      // 💾 Simpan data baru
+      // 💾 Simpan data baru (USD)
       let history = oldData[symbol] || [];
       if (!Array.isArray(history)) history = [history];
-      const updated = [...history, price].slice(-2); // simpan 2 harga terakhir
+      const updated = [...history, priceUSD].slice(-2); // simpan 2 harga terakhir
       newData[symbol] = updated;
     });
 
@@ -140,12 +136,12 @@ async function getCrypto() {
     // ==============================
     let message = "*🚀 CRYPTO PUMP ALERT (IDR)*\n\n";
 
-    const formatLine = (c, isBeruntun = false) => {
+    const formatLine = (c, isBeruntun=false) => {
       const priceStr = `Rp${c.price.toLocaleString("id-ID")}`;
       if (isBeruntun) {
         return `*${c.symbol}* | 🔼 +${c.totalChange.toFixed(2)}% | Vol: Rp${c.volume.toLocaleString("id-ID")} | ${priceStr}`;
       }
-      return `*${c.symbol}* | +${(c.change || 0)} | ${priceStr}`;
+      return `*${c.symbol}* | +${c.change} | ${priceStr}`;
     };
 
     if (early.length > 0) {
@@ -175,7 +171,7 @@ async function getCrypto() {
       console.log("Tidak ada pump terdeteksi saat ini.");
     }
 
-    // 💾 simpan data JSON
+    // 💾 simpan data JSON (USD)
     fs.writeFileSync(FILE, JSON.stringify(newData, null, 2));
 
   } catch (err) {

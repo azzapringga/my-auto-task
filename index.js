@@ -73,7 +73,7 @@ async function getCrypto() {
       if (oldData[symbol] && oldData[symbol].length >= 1) {
         const oldPriceUSD = oldData[symbol].slice(-1)[0];
         const change = oldPriceUSD > 0
-          ? ((priceUSD - oldPriceUSD)/oldPriceUSD * 100)
+          ? parseFloat(((priceUSD - oldPriceUSD)/oldPriceUSD * 100).toFixed(3))
           : 0;
 
         if (isCheap && change >= 0.1 && change < 0.5) {
@@ -84,8 +84,9 @@ async function getCrypto() {
       // 🔼 PUMP BERUNTUN
       if (oldData[symbol] && oldData[symbol].length === 2) {
         const [price20mUSD, price10mUSD] = oldData[symbol];
-        const change1 = price20mUSD > 0 ? ((price10mUSD - price20mUSD)/price20mUSD*100) : 0;
-        const change2 = price10mUSD > 0 ? ((priceUSD - price10mUSD)/price10mUSD*100) : 0;
+        const change1 = price20mUSD > 0 ? parseFloat(((price10mUSD - price20mUSD)/price20mUSD*100).toFixed(3)) : 0;
+        const change2 = price10mUSD > 0 ? parseFloat(((priceUSD - price10mUSD)/price10mUSD*100).toFixed(3)) : 0;
+        const totalChange = change1 + change2;
 
         if (
           isCheap &&
@@ -98,7 +99,7 @@ async function getCrypto() {
             symbol,
             change1,
             change2,
-            totalChange: change1 + change2,
+            totalChange,
             price: priceIDR,
             volume: c.total_volume * USD_TO_IDR
           });
@@ -115,7 +116,7 @@ async function getCrypto() {
         c.price_change_percentage_24h > 0
       ) {
         const oldPriceUSD = oldData[symbol][0];
-        const changePercent = ((priceUSD - oldPriceUSD)/oldPriceUSD*100).toFixed(2) + "%";
+        const changePercent = ((priceUSD - oldPriceUSD)/oldPriceUSD*100).toFixed(3) + "%";
 
         if (c.total_volume / (c.total_volume_24h || 1) > 2) {
           big.push({
@@ -142,7 +143,7 @@ async function getCrypto() {
     const formatLine = (c, isBeruntun=false) => {
       const priceStr = `Rp${c.price.toLocaleString("id-ID")}`;
       if (isBeruntun) {
-        return `*${c.symbol}* | 🔼 +${c.totalChange.toFixed(2)}% | Vol: Rp${c.volume.toLocaleString("id-ID")} | ${priceStr}`;
+        return `*${c.symbol}* | 🔼 +${c.totalChange.toFixed(3)}% | Vol: Rp${c.volume.toLocaleString("id-ID")} | ${priceStr}`;
       }
       return `*${c.symbol}* | +${c.change} | ${priceStr}`;
     };

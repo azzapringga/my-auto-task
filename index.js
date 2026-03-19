@@ -8,7 +8,7 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // Kurs Rupiah
-const USD_TO_IDR = 15000;
+const USD_TO_IDR = 16000;
 
 // ==============================
 // 📩 FUNCTION TELEGRAM
@@ -64,7 +64,7 @@ async function getCrypto() {
       const symbol = c.symbol.toUpperCase();
       const priceUSD = c.current_price;
       const price = priceUSD * USD_TO_IDR; // ubah ke Rupiah
-      const isCheap = price < 15000; // filter koin murah < Rp 15,000
+      const isCheap = price < USD_TO_IDR; // filter koin murah < Rp 15,000
 
       // 🔹 EARLY PUMP
       if (oldData[symbol] && oldData[symbol].length >= 1) {

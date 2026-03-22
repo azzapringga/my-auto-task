@@ -10,12 +10,17 @@ const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 // Config
 const USD_TO_IDR = 15000;
 const LOOP_INTERVAL = 30000; // 30 detik
-const LOOP_COUNT = 6; // 3 menit total
+const LOOP_COUNT = 6; // total ±3 menit
 
-// FUNCTION TELEGRAM
+// Multi page config
+const PAGES = [1, 2, 3, 4, 5]; // 500 koin
+
+// TELEGRAM
 async function sendTelegram(message) {
   if (!TELEGRAM_TOKEN || !CHAT_ID) return;
+
   const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+
   try {
     await axios.post(url, {
       chat_id: CHAT_ID,
@@ -28,13 +33,40 @@ async function sendTelegram(message) {
   }
 }
 
-// SCAN FUNCTION
+// FETCH MULTI PAGE (PARALLEL)
+async function fetchAllCoins() {
+  try {
+    const requests = PAGES.map(p =>
+      axios.get("https://api.coingecko.com/api/v3/coins/markets", {
+        params: {
+          vs_currency: "usd",
+          order: "volume_desc", // 🔥 penting
+          per_page: 100,
+          page: p
+        },
+        timeout: 10000
+      })
+    );
+
+    const results = await Promise.all(requests);
+
+    let allCoins = [];
+    results.forEach(r => {
+      allCoins = allCoins.concat(r.data);
+    });
+
+    return allCoins;
+
+  } catch (err) {
+    console.error("❌ Fetch error:", err.message);
+    return [];
+  }
+}
+
+// SCANNER
 async function scanMarket() {
   try {
-    const res = await axios.get("https://api.coingecko.com/api/v3/coins/markets", {
-      params: { vs_currency: "usd", order: "market_cap_desc", per_page: 100, page: 2 },
-      timeout: 10000
-    });
+    const coins = await fetchAllCoins();
 
     let oldData = {};
     if (fs.existsSync(FILE_JSON)) {
@@ -42,26 +74,30 @@ async function scanMarket() {
     }
 
     let newData = {};
-    let early = [], fast = [], beruntun = [];
 
-    res.data.forEach(c => {
+    let fast = [];
+    let early = [];
+    let beruntun = [];
+    let top = [];
+
+    coins.forEach(c => {
       const symbol = c.symbol.toUpperCase();
       const priceUSD = c.current_price;
       const priceIDR = priceUSD * USD_TO_IDR;
       const volume = c.total_volume * USD_TO_IDR;
 
-      // SIMPAN HISTORY (max 5 data = ~5 menit)
       let history = oldData[symbol] || [];
       if (!Array.isArray(history)) history = [history];
+
       history.push(priceUSD);
       history = history.slice(-5);
       newData[symbol] = history;
 
       const isCheap = priceIDR < 15000 && priceIDR > 50;
 
-      // =========================
-      // 🔥 FAST PUMP (BARU)
-      // =========================
+      // =====================
+      // 🔥 FAST PUMP (1 menit)
+      // =====================
       if (history.length >= 2) {
         const prev = history[history.length - 2];
         const change1m = ((priceUSD - prev) / prev) * 100;
@@ -70,27 +106,23 @@ async function scanMarket() {
           fast.push({
             symbol,
             change: change1m.toFixed(2),
-            price: priceIDR,
-            volume
+            price: priceIDR
+          });
+        }
+
+        // EARLY TREND
+        if (isCheap && change1m >= 0.5 && change1m < 2) {
+          early.push({
+            symbol,
+            change: change1m.toFixed(2),
+            price: priceIDR
           });
         }
       }
 
-      // =========================
-      // 🟢 EARLY PUMP (REVISI)
-      // =========================
-      if (history.length >= 2) {
-        const prev = history[history.length - 2];
-        const change = ((priceUSD - prev) / prev) * 100;
-
-        if (isCheap && change >= 0.5 && change < 2) {
-          early.push({ symbol, change: change.toFixed(3), price: priceIDR });
-        }
-      }
-
-      // =========================
+      // =====================
       // 🔼 PUMP BERUNTUN
-      // =========================
+      // =====================
       if (history.length >= 3) {
         const p1 = history[history.length - 3];
         const p2 = history[history.length - 2];
@@ -108,16 +140,27 @@ async function scanMarket() {
           });
         }
       }
+
+      // =====================
+      // 🏆 TOP GAINER (24H)
+      // =====================
+      if (c.price_change_percentage_24h >= 5) {
+        top.push({
+          symbol,
+          change: c.price_change_percentage_24h.toFixed(2),
+          price: priceIDR
+        });
+      }
     });
 
-    // =========================
+    // =====================
     // FORMAT TELEGRAM
-    // =========================
-    let msg = "*🚀 CRYPTO PUMP ALERT (REALTIME MODE)*\n\n";
+    // =====================
+    let msg = "*🚀 CRYPTO SCANNER PRO (REALTIME MODE)*\n\n";
 
     if (fast.length) {
       msg += "🔥 *FAST PUMP (1m)*\n";
-      fast.forEach(c => {
+      fast.slice(0, 10).forEach(c => {
         msg += `*${c.symbol}* | +${c.change}% | Rp${c.price.toLocaleString("id-ID")}\n`;
       });
       msg += "\n";
@@ -125,7 +168,7 @@ async function scanMarket() {
 
     if (early.length) {
       msg += "🟢 *EARLY TREND*\n";
-      early.forEach(c => {
+      early.slice(0, 10).forEach(c => {
         msg += `*${c.symbol}* | +${c.change}% | Rp${c.price.toLocaleString("id-ID")}\n`;
       });
       msg += "\n";
@@ -133,13 +176,21 @@ async function scanMarket() {
 
     if (beruntun.length) {
       msg += "🔼 *PUMP BERUNTUN*\n";
-      beruntun.forEach(c => {
+      beruntun.slice(0, 10).forEach(c => {
         msg += `*${c.symbol}* | +${c.totalChange}% | Vol: Rp${c.volume.toLocaleString("id-ID")} | Rp${c.price.toLocaleString("id-ID")}\n`;
       });
       msg += "\n";
     }
 
-    if (fast.length + early.length + beruntun.length > 0) {
+    if (top.length) {
+      msg += "🏆 *TOP GAINER (24H)*\n";
+      top.slice(0, 10).forEach(c => {
+        msg += `*${c.symbol}* | +${c.change}% | Rp${c.price.toLocaleString("id-ID")}\n`;
+      });
+      msg += "\n";
+    }
+
+    if (fast.length + early.length + beruntun.length + top.length > 0) {
       await sendTelegram(msg);
     } else {
       console.log("⏳ Tidak ada sinyal...");
@@ -152,11 +203,11 @@ async function scanMarket() {
   }
 }
 
-// =========================
-// 🔁 LOOP INTERNAL (KUNCI UTAMA)
-// =========================
+// =====================
+// 🔁 LOOP INTERNAL
+// =====================
 async function runBot() {
-  console.log("🚀 Bot dimulai (Realtime Simulation Mode)");
+  console.log("🚀 Bot dimulai (PRO REALTIME)");
 
   for (let i = 0; i < LOOP_COUNT; i++) {
     console.log(`\n⏱️ Scan ke-${i + 1}`);
@@ -167,7 +218,7 @@ async function runBot() {
     }
   }
 
-  console.log("✅ Selesai 1 siklus GitHub Action");
+  console.log("✅ Selesai 1 siklus");
 }
 
 runBot();

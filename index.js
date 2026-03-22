@@ -10,10 +10,10 @@ const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 // Config
 const USD_TO_IDR = 15000;
 const LOOP_INTERVAL = 30000; // 30 detik
-const LOOP_COUNT = 6; // total ±3 menit
+const LOOP_COUNT = 6;
 
-// Multi page config
-const PAGES = [1, 2, 3, 4, 5]; // 500 koin
+// 🔥 Kurangi page (anti 429)
+const PAGES = [1, 2, 3];
 
 // TELEGRAM
 async function sendTelegram(message) {
@@ -33,27 +33,27 @@ async function sendTelegram(message) {
   }
 }
 
-// FETCH MULTI PAGE (PARALLEL)
+// FETCH (ANTI 429)
 async function fetchAllCoins() {
   try {
-    const requests = PAGES.map(p =>
-      axios.get("https://api.coingecko.com/api/v3/coins/markets", {
+    let allCoins = [];
+
+    for (let p of PAGES) {
+      const res = await axios.get("https://api.coingecko.com/api/v3/coins/markets", {
         params: {
           vs_currency: "usd",
-          order: "volume_desc", // 🔥 penting
+          order: "volume_desc",
           per_page: 100,
           page: p
         },
         timeout: 10000
-      })
-    );
+      });
 
-    const results = await Promise.all(requests);
+      allCoins = allCoins.concat(res.data);
 
-    let allCoins = [];
-    results.forEach(r => {
-      allCoins = allCoins.concat(r.data);
-    });
+      // ⏳ Delay biar aman dari rate limit
+      await new Promise(r => setTimeout(r, 1200));
+    }
 
     return allCoins;
 
@@ -63,7 +63,7 @@ async function fetchAllCoins() {
   }
 }
 
-// SCANNER
+// SCAN
 async function scanMarket() {
   try {
     const coins = await fetchAllCoins();
@@ -96,13 +96,13 @@ async function scanMarket() {
       const isCheap = priceIDR < 15000 && priceIDR > 50;
 
       // =====================
-      // 🔥 FAST PUMP (1 menit)
+      // 🔥 FAST PUMP (PRIORITAS)
       // =====================
       if (history.length >= 2) {
         const prev = history[history.length - 2];
         const change1m = ((priceUSD - prev) / prev) * 100;
 
-        if (change1m >= 2) {
+        if (change1m >= 2 && volume > 100000000) {
           fast.push({
             symbol,
             change: change1m.toFixed(2),
@@ -110,7 +110,7 @@ async function scanMarket() {
           });
         }
 
-        // EARLY TREND
+        // 🟢 EARLY
         if (isCheap && change1m >= 0.5 && change1m < 2) {
           early.push({
             symbol,
@@ -121,7 +121,7 @@ async function scanMarket() {
       }
 
       // =====================
-      // 🔼 PUMP BERUNTUN
+      // 🔼 BERUNTUN
       // =====================
       if (history.length >= 3) {
         const p1 = history[history.length - 3];
@@ -142,25 +142,43 @@ async function scanMarket() {
       }
 
       // =====================
-      // 🏆 TOP GAINER (24H)
+      // 🏆 TOP GAINER (ANTI TELAT)
       // =====================
-      if (c.price_change_percentage_24h >= 5) {
-        top.push({
-          symbol,
-          change: c.price_change_percentage_24h.toFixed(2),
-          price: priceIDR
-        });
+      if (
+        c.price_change_percentage_24h >= 5 &&
+        c.price_change_percentage_24h <= 25 && // ❌ buang yang terlalu tinggi (telat)
+        history.length >= 2
+      ) {
+        const prev = history[history.length - 2];
+        const nowChange = ((priceUSD - prev) / prev) * 100;
+
+        if (nowChange > 0.5) {
+          top.push({
+            symbol,
+            change: c.price_change_percentage_24h.toFixed(2),
+            price: priceIDR
+          });
+        }
       }
+
     });
 
     // =====================
-    // FORMAT TELEGRAM
+    // SORTING (BIAR RAPI)
     // =====================
-    let msg = "*🚀 CRYPTO SCANNER PRO (REALTIME MODE)*\n\n";
+    fast.sort((a,b)=>b.change - a.change);
+    early.sort((a,b)=>b.change - a.change);
+    beruntun.sort((a,b)=>b.totalChange - a.totalChange);
+    top.sort((a,b)=>b.change - a.change);
+
+    // =====================
+    // TELEGRAM FORMAT
+    // =====================
+    let msg = "*🚀 CRYPTO SCANNER PRO (SMART FILTER)*\n\n";
 
     if (fast.length) {
-      msg += "🔥 *FAST PUMP (1m)*\n";
-      fast.slice(0, 10).forEach(c => {
+      msg += "🔥 *FAST PUMP (REALTIME)*\n";
+      fast.slice(0,10).forEach(c=>{
         msg += `*${c.symbol}* | +${c.change}% | Rp${c.price.toLocaleString("id-ID")}\n`;
       });
       msg += "\n";
@@ -168,7 +186,7 @@ async function scanMarket() {
 
     if (early.length) {
       msg += "🟢 *EARLY TREND*\n";
-      early.slice(0, 10).forEach(c => {
+      early.slice(0,10).forEach(c=>{
         msg += `*${c.symbol}* | +${c.change}% | Rp${c.price.toLocaleString("id-ID")}\n`;
       });
       msg += "\n";
@@ -176,15 +194,15 @@ async function scanMarket() {
 
     if (beruntun.length) {
       msg += "🔼 *PUMP BERUNTUN*\n";
-      beruntun.slice(0, 10).forEach(c => {
+      beruntun.slice(0,10).forEach(c=>{
         msg += `*${c.symbol}* | +${c.totalChange}% | Vol: Rp${c.volume.toLocaleString("id-ID")} | Rp${c.price.toLocaleString("id-ID")}\n`;
       });
       msg += "\n";
     }
 
     if (top.length) {
-      msg += "🏆 *TOP GAINER (24H)*\n";
-      top.slice(0, 10).forEach(c => {
+      msg += "🏆 *TOP GAINER (VALID)*\n";
+      top.slice(0,10).forEach(c=>{
         msg += `*${c.symbol}* | +${c.change}% | Rp${c.price.toLocaleString("id-ID")}\n`;
       });
       msg += "\n";
@@ -203,11 +221,9 @@ async function scanMarket() {
   }
 }
 
-// =====================
-// 🔁 LOOP INTERNAL
-// =====================
+// LOOP
 async function runBot() {
-  console.log("🚀 Bot dimulai (PRO REALTIME)");
+  console.log("🚀 Bot dimulai (SMART MODE)");
 
   for (let i = 0; i < LOOP_COUNT; i++) {
     console.log(`\n⏱️ Scan ke-${i + 1}`);

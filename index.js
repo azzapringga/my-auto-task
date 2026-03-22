@@ -7,11 +7,10 @@ const FILE_JSON = "data.json";
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-// CONFIG (🔥 SUDAH DISESUAIKAN BIAR ANTI 429)
+// CONFIG (AMAN DARI 429)
 const USD_TO_IDR = 15000;
-const LOOP_COUNT = 4;           // lebih sedikit
-const LOOP_INTERVAL = 30000;    // 30 detik (AMAN)
-const PAGES = 1;                // 🔥 balik ke 1 page
+const LOOP_COUNT = 4;
+const LOOP_INTERVAL = 30000;
 const PER_PAGE = 50;
 
 // Delay
@@ -34,7 +33,7 @@ async function sendTelegram(message) {
 }
 
 // ================= FETCH =================
-async function fetchWithRetry(retries = 2) {
+async function fetchData(retries = 2) {
   try {
     return await axios.get("https://api.coingecko.com/api/v3/coins/markets", {
       params: {
@@ -49,16 +48,16 @@ async function fetchWithRetry(retries = 2) {
     if (err.response?.status === 429 && retries > 0) {
       console.log("⚠️ Kena limit, retry...");
       await delay(15000);
-      return fetchWithRetry(retries - 1);
+      return fetchData(retries - 1);
     }
     throw err;
   }
 }
 
 // ================= MAIN =================
-async function getCrypto() {
+async function scan() {
   try {
-    const res = await fetchWithRetry();
+    const res = await fetchData();
 
     let oldData = {};
     if (fs.existsSync(FILE_JSON)) {
@@ -66,44 +65,83 @@ async function getCrypto() {
     }
 
     let newData = {};
-    let fast = [], early = [], micro = [];
+
+    let fast = [];
+    let early = [];
+    let micro = [];
+    let entry = [];
 
     res.data.forEach(c => {
       const symbol = c.symbol.toUpperCase();
       const price = c.current_price;
+      const volume = c.total_volume;
+
       const priceIDR = price * USD_TO_IDR;
-      const volume = c.total_volume * USD_TO_IDR;
+      const volumeIDR = volume * USD_TO_IDR;
 
       const history = oldData[symbol] || [];
       const last = history.slice(-1)[0];
 
       if (last) {
-        const change = ((price - last) / last) * 100;
+        const prevPrice = last.price;
+        const prevVolume = last.volume || 1;
+
+        const change = ((price - prevPrice) / prevPrice) * 100;
+        const volumeSpike = volume / prevVolume;
 
         // 🔥 FAST PUMP
-        if (change > 1.2 && volume > 300000000) {
+        if (change > 1.5 && volumeIDR > 300000000) {
           fast.push({ symbol, change: change.toFixed(2), price: priceIDR });
         }
 
-        // 🟢 EARLY MOMENTUM
-        if (change > 0.3 && change <= 1.2 && volume > 150000000) {
-          early.push({ symbol, change: change.toFixed(2), price: priceIDR });
+        // 🟢 EARLY MOMENTUM (volume spike)
+        if (change > 0.4 && volumeSpike > 1.5) {
+          early.push({
+            symbol,
+            change: change.toFixed(2),
+            spike: volumeSpike.toFixed(2),
+            price: priceIDR
+          });
         }
 
-        // ⚪ MICRO TREND (awal banget)
-        if (change > 0.15 && change <= 0.3 && volume > 100000000) {
-          micro.push({ symbol, change: change.toFixed(2), price: priceIDR });
+        // ⚪ MICRO TREND
+        if (change > 0.15 && change <= 0.4 && volumeSpike > 1.2) {
+          micro.push({
+            symbol,
+            change: change.toFixed(2),
+            price: priceIDR
+          });
+        }
+
+        // 🚀 ENTRY SIGNAL (INI YANG PALING PENTING)
+        if (change > 0.5 && volumeSpike > 2) {
+          entry.push({
+            symbol,
+            change: change.toFixed(2),
+            spike: volumeSpike.toFixed(2),
+            price: priceIDR
+          });
         }
       }
 
-      newData[symbol] = [...history, price].slice(-3);
+      newData[symbol] = [
+        ...history,
+        { price, volume }
+      ].slice(-3);
     });
 
-    // ================= FORMAT TELEGRAM =================
-    let msg = "🚀 CRYPTO SCANNER (EARLY MODE)\n\n";
+    // ================= TELEGRAM =================
+    let msg = "🚀 CRYPTO SCANNER PRO (SMART ENTRY)\n\n";
+
+    if (entry.length) {
+      msg += "🔥 *ENTRY SIGNAL (POTENSI NAIK)* 🔥\n";
+      entry.forEach(c => {
+        msg += `${c.symbol} | +${c.change}% | 🔥x${c.spike}\n💰 Entry: Rp${c.price.toLocaleString("id-ID")}\n\n`;
+      });
+    }
 
     if (fast.length) {
-      msg += "🔥 FAST PUMP\n";
+      msg += "🚀 FAST PUMP\n";
       fast.forEach(c => {
         msg += `${c.symbol} | +${c.change}% | Rp${c.price.toLocaleString("id-ID")}\n`;
       });
@@ -113,7 +151,7 @@ async function getCrypto() {
     if (early.length) {
       msg += "🟢 EARLY MOMENTUM\n";
       early.forEach(c => {
-        msg += `${c.symbol} | +${c.change}% | Rp${c.price.toLocaleString("id-ID")}\n`;
+        msg += `${c.symbol} | +${c.change}% | 🔥x${c.spike}\n`;
       });
       msg += "\n";
     }
@@ -121,12 +159,12 @@ async function getCrypto() {
     if (micro.length) {
       msg += "⚪ MICRO TREND\n";
       micro.forEach(c => {
-        msg += `${c.symbol} | +${c.change}% | Rp${c.price.toLocaleString("id-ID")}\n`;
+        msg += `${c.symbol} | +${c.change}%\n`;
       });
       msg += "\n";
     }
 
-    if (fast.length || early.length || micro.length) {
+    if (entry.length || fast.length || early.length || micro.length) {
       await sendTelegram(msg);
     } else {
       console.log("⏳ Tidak ada sinyal...");
@@ -141,13 +179,11 @@ async function getCrypto() {
 
 // ================= LOOP =================
 async function runBot() {
-  console.log("🚀 Bot dimulai (EARLY MODE - STABLE)");
+  console.log("🚀 Bot dimulai (SMART MODE + ENTRY)");
 
   for (let i = 1; i <= LOOP_COUNT; i++) {
     console.log(`\n⏱️ Scan ke-${i}`);
-
-    await getCrypto();
-
+    await scan();
     await delay(LOOP_INTERVAL);
   }
 

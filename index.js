@@ -3,20 +3,19 @@ const fs = require("fs");
 
 const FILE_JSON = "data.json";
 
-// Telegram config
+// Telegram config dari GitHub Secrets
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-// Kurs Rupiah (tetap)
+// Kurs Rupiah (tetap statis agar hemat limit GitHub)
 const USD_TO_IDR = 15000;
 
-// Konfigurasi bot
-const PER_PAGE = 50; // fokus 50 koin top market cap
-const BIG_PUMP_THRESHOLD = 1.05; // 5% kenaikan
-const LOOP_COUNT = 6;
-const LOOP_INTERVAL = 60000; // 60 detik (bisa disesuaikan)
+// Konfigurasi Bot
+const LOOP_MINI = 2;           // Mini scan per siklus
+const PER_PAGE = 70;           // Ambil top 70 koin (filter awal)
+const BIG_PUMP_THRESHOLD = 1.05; // +5% untuk big pump
+const VOLUME_MAX = 5000000000;  // Skip koin super top volume
 
-// Delay helper
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
 // ================= TELEGRAM =================
@@ -30,43 +29,32 @@ async function sendTelegram(message) {
     });
     console.log("✅ Telegram terkirim");
   } catch (err) {
-    console.error("❌ Telegram error:", err.response?.data || err.message);
+    console.error("❌ Error Telegram:", err.response?.data || err.message);
   }
 }
 
-// ================= FETCH DATA =================
-async function fetchData(retries = 3) {
+// ================= FETCH =================
+async function fetchData(retries = 2) {
   try {
     return await axios.get("https://api.coingecko.com/api/v3/coins/markets", {
-      params: {
-        vs_currency: "usd",
-        order: "market_cap_desc",
-        per_page: PER_PAGE,
-        page: 1
-      },
+      params: { vs_currency: "usd", order: "market_cap_desc", per_page: PER_PAGE, page: 1 },
       timeout: 10000
     });
   } catch (err) {
     if (err.response?.status === 429 && retries > 0) {
-      const wait = 15000 + Math.random() * 5000;
-      console.log(`⚠️ Kena limit, retry setelah ${Math.round(wait/1000)} detik...`);
-      await delay(wait);
+      console.log("⚠️ Kena limit, retry...");
+      await delay(15000);
       return fetchData(retries - 1);
     }
     throw err;
   }
 }
 
-// ================= ANALISA PUMP =================
+// ================= MAIN SCAN =================
 async function analyze() {
   try {
     const res = await fetchData();
-
-    let oldData = {};
-    if (fs.existsSync(FILE_JSON)) {
-      oldData = JSON.parse(fs.readFileSync(FILE_JSON));
-    }
-
+    let oldData = fs.existsSync(FILE_JSON) ? JSON.parse(fs.readFileSync(FILE_JSON)) : {};
     let newData = {};
     let signals = [];
 
@@ -74,73 +62,58 @@ async function analyze() {
       const symbol = c.symbol.toUpperCase();
       const priceUSD = c.current_price;
       const priceIDR = priceUSD * USD_TO_IDR;
-      const volume = c.total_volume;
+
+      // Skip koin top volume lambat
+      if (c.total_volume > VOLUME_MAX) return;
 
       const history = oldData[symbol] || [];
+      let label = "";
+      let emoji = "";
 
-      if (history.length >= 2) {
+      // Minimal 1 history → early pump
+      if (history.length >= 1) {
         const prev = history[history.length - 1];
-        const prev2 = history[history.length - 2];
+        const change = ((priceUSD - prev.price)/prev.price)*100;
 
-        const change1 = ((priceUSD - prev) / prev) * 100;
-        const change2 = ((prev - prev2) / prev2) * 100;
+        if (change >= 0.3 && change < 1) { label = "EARLY PUMP"; emoji = "🟢"; }
+        else if (change >= 1 && change < 3) { label = "BREAKOUT"; emoji = "🚀"; }
+        else if (change >= 3) { label = "BIG PUMP"; emoji = "🔥"; }
 
-        const volumeSpike = volume / (prev2 || 1);
-
-        let label = "";
-        let emoji = "";
-
-        // SKIP koin top volume lambat
-        if (volume > 5000000000 && change1 < 0.2) {
-          label = "TOP VOLUME LAMBAT";
-          emoji = "⏳";
-        }
-        // BIG PUMP / peluang top gainer
-        else if (change1 > 5) {
-          label = "BIG PUMP";
-          emoji = "🔥";
-        }
-        // VALID ENTRY
-        else if (change1 > 1.5 && volumeSpike > 1.2) {
-          label = "VALID ENTRY";
-          emoji = "✅";
-        }
-
-        if (label && label !== "TOP VOLUME LAMBAT") {
-          signals.push({ symbol, price: priceIDR, change: change1.toFixed(2), spike: volumeSpike.toFixed(2), label, emoji });
+        if (label) {
+          signals.push({ symbol, price: priceIDR, change: change.toFixed(2), emoji });
         }
       }
 
-      newData[symbol] = [...history, priceUSD].slice(-3);
+      // Update history terakhir 2 data
+      newData[symbol] = [...history, { price: priceUSD, volume: c.total_volume }].slice(-2);
     });
 
-    // ================= KIRIM TELEGRAM =================
-    if (signals.length) {
-      let msg = "🚀 *Hybrid Sniper Aggressive Mode*\n\n";
-      signals.forEach(c => {
-        msg += `${c.emoji} ${c.symbol} | +${c.change}% | 🔥x${c.spike}\n${c.label}\n💰 Rp${c.price.toLocaleString("id-ID")}\n\n`;
+    // ================= TELEGRAM =================
+    if (signals.length > 0) {
+      let msg = "*🚀 HYBRID SNIPER SIGNAL*\n\n";
+      signals.slice(0, 10).forEach(s => {
+        msg += `${s.emoji} ${s.symbol} | +${s.change}% | Rp${s.price.toLocaleString("id-ID")}\n`;
       });
       await sendTelegram(msg);
     } else {
       console.log("⚠️ Tidak ada signal kuat, skip Telegram");
     }
 
-    // Simpan JSON
     fs.writeFileSync(FILE_JSON, JSON.stringify(newData, null, 2));
 
   } catch (err) {
-    console.error("❌ Fetch/Analisa error:", err.message);
+    console.error("❌ Fetch error:", err.message);
   }
 }
 
-// ================= LOOP =================
+// ================= LOOP MINI =================
 async function runBot() {
-  console.log("🚀 Bot dimulai (Hybrid Sniper Aggressive Mode)");
+  console.log("🚀 Bot dimulai (Hybrid Sniper Optimized)");
 
-  for (let i = 1; i <= LOOP_COUNT; i++) {
+  for (let i = 1; i <= LOOP_MINI; i++) {
     console.log(`\n⏱️ Scan mini ke-${i}`);
     await analyze();
-    await delay(LOOP_INTERVAL);
+    if (i < LOOP_MINI) await delay(20000); // delay mini scan 20 detik
   }
 
   console.log("✅ Selesai 1 siklus");

@@ -2,8 +2,8 @@ name: Auto Crypto Scan
 
 on:
   schedule:
-    - cron: "*/10 * * * *"  # setiap 10 menit
-  workflow_dispatch:  # manual trigger
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
 
 jobs:
   crypto-scan:
@@ -20,22 +20,22 @@ jobs:
         with:
           node-version: "20"
 
-      # 3. Install dependencies
+      # 3. Install dependencies (FIX)
       - name: Install dependencies
-        run: npm install axios
+        run: npm ci
 
-      # 4. Run scan script
+      # 4. Run script
       - name: Run Crypto Scan
         run: node index.js
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-      # 5. Commit updated data.json agar persist di repo
+      # 5. Commit data.json
       - name: Commit updated data.json
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add data.json
-          git diff-index --quiet HEAD || git commit -m "Update data.json"
+          git commit -m "Update data.json" || echo "No changes"
           git push

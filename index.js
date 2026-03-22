@@ -9,8 +9,8 @@ const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // Config
 const USD_TO_IDR = 15000;
-const LOOP_INTERVAL = 60000; // 1 menit
-const LOOP_COUNT = 10; // 10x loop (total ±10 menit)
+const LOOP_INTERVAL = 30000; // 30 detik
+const LOOP_COUNT = 6; // 3 menit total
 
 // FUNCTION TELEGRAM
 async function sendTelegram(message) {

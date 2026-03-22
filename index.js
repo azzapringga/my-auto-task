@@ -13,7 +13,6 @@ const LOOP_COUNT = 4;
 const LOOP_INTERVAL = 30000;
 const PER_PAGE = 50;
 
-// Delay
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
 // ================= TELEGRAM =================
@@ -65,10 +64,7 @@ async function scan() {
     }
 
     let newData = {};
-
-    let entry = [];
-    let early = [];
-    let micro = [];
+    let signals = [];
 
     res.data.forEach(c => {
       const symbol = c.symbol.toUpperCase();
@@ -78,39 +74,45 @@ async function scan() {
       const priceIDR = price * USD_TO_IDR;
 
       const history = oldData[symbol] || [];
-      const last = history.slice(-1)[0];
 
-      if (last) {
-        const prevPrice = last.price;
-        const prevVolume = last.volume || 1;
+      if (history.length >= 2) {
+        const prev = history[history.length - 1];
+        const prev2 = history[history.length - 2];
 
-        const change = ((price - prevPrice) / prevPrice) * 100;
-        const volumeSpike = volume / prevVolume;
+        const change1 = ((price - prev.price) / prev.price) * 100;
+        const change2 = ((prev.price - prev2.price) / prev2.price) * 100;
 
-        // 🔥 ENTRY (lebih sensitif)
-        if (change > 0.3 && volumeSpike > 1.5) {
-          entry.push({
+        const volumeSpike = volume / (prev.volume || 1);
+
+        let label = "";
+        let emoji = "";
+
+        // ❌ SKIP (terlalu tinggi / telat)
+        if (change1 > 5) {
+          label = "SKIP (TERLAMBAT)";
+          emoji = "❌";
+        }
+
+        // ✅ VALID ENTRY (BEST)
+        else if (change1 > 0.3 && change2 > 0.2 && volumeSpike > 1.5) {
+          label = "VALID ENTRY";
+          emoji = "✅";
+        }
+
+        // ⚠️ RISKY
+        else if (change1 > 0.2 && volumeSpike > 1.3) {
+          label = "RISKY";
+          emoji = "⚠️";
+        }
+
+        if (label) {
+          signals.push({
             symbol,
-            change: change.toFixed(2),
+            change: change1.toFixed(2),
             spike: volumeSpike.toFixed(2),
-            price: priceIDR
-          });
-        }
-
-        // 🟢 EARLY
-        else if (change > 0.2 && volumeSpike > 1.3) {
-          early.push({
-            symbol,
-            change: change.toFixed(2),
-            spike: volumeSpike.toFixed(2)
-          });
-        }
-
-        // ⚪ MICRO
-        else if (change > 0.1 && volumeSpike > 1.1) {
-          micro.push({
-            symbol,
-            change: change.toFixed(2)
+            price: priceIDR,
+            label,
+            emoji
           });
         }
       }
@@ -121,43 +123,20 @@ async function scan() {
       ].slice(-3);
     });
 
+    // ================= FILTER =================
+    if (!signals.length) {
+      console.log("⏳ Tidak ada sinyal sniper...");
+      fs.writeFileSync(FILE_JSON, JSON.stringify(newData, null, 2));
+      return;
+    }
+
     // ================= TELEGRAM =================
-    let msg = "🚀 CRYPTO SCANNER (SMART SENSITIF)\n\n";
+    let msg = "🎯 CRYPTO SNIPER MODE\n\n";
 
-    if (entry.length) {
-      msg += "🔥 *ENTRY SIGNAL*\n";
-      entry.forEach(c => {
-        msg += `${c.symbol} | +${c.change}% | 🔥x${c.spike}\n💰 Rp${c.price.toLocaleString("id-ID")}\n\n`;
-      });
-    }
-
-    if (early.length) {
-      msg += "🟢 EARLY MOMENTUM\n";
-      early.forEach(c => {
-        msg += `${c.symbol} | +${c.change}% | 🔥x${c.spike}\n`;
-      });
-      msg += "\n";
-    }
-
-    if (micro.length) {
-      msg += "⚪ MICRO TREND\n";
-      micro.forEach(c => {
-        msg += `${c.symbol} | +${c.change}%\n`;
-      });
-      msg += "\n";
-    }
-
-    // 🔥 FALLBACK BIAR NGGAK SEPI
-    if (!entry.length && !early.length && !micro.length) {
-      let fallback = res.data.slice(0, 5);
-
-      msg = "📊 MARKET UPDATE (TOP VOLUME)\n\n";
-
-      fallback.forEach(c => {
-        const priceIDR = c.current_price * USD_TO_IDR;
-        msg += `${c.symbol.toUpperCase()} | Rp${priceIDR.toLocaleString("id-ID")}\n`;
-      });
-    }
+    signals.slice(0, 7).forEach(c => {
+      msg += `${c.emoji} ${c.symbol} | +${c.change}% | 🔥x${c.spike}\n`;
+      msg += `${c.label}\n💰 Rp${c.price.toLocaleString("id-ID")}\n\n`;
+    });
 
     await sendTelegram(msg);
 
@@ -170,7 +149,7 @@ async function scan() {
 
 // ================= LOOP =================
 async function runBot() {
-  console.log("🚀 Bot dimulai (SMART SENSITIF MODE)");
+  console.log("🚀 Bot dimulai (SNIPER MODE)");
 
   for (let i = 1; i <= LOOP_COUNT; i++) {
     console.log(`\n⏱️ Scan ke-${i}`);

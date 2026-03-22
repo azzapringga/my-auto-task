@@ -7,10 +7,10 @@ const FILE_JSON = "data.json";
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-// CONFIG
+// CONFIG (HEMAT MODE)
 const USD_TO_IDR = 15000;
-const LOOP_COUNT = 6;
-const LOOP_INTERVAL = 30000;
+const LOOP_COUNT = 2;           // 🔥 hemat
+const LOOP_INTERVAL = 60000;    // 1 menit
 const PER_PAGE = 50;
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
@@ -32,25 +32,16 @@ async function sendTelegram(message) {
 }
 
 // ================= FETCH =================
-async function fetchData(retries = 2) {
-  try {
-    return await axios.get("https://api.coingecko.com/api/v3/coins/markets", {
-      params: {
-        vs_currency: "usd",
-        order: "volume_desc",
-        per_page: PER_PAGE,
-        page: 1
-      },
-      timeout: 10000
-    });
-  } catch (err) {
-    if (err.response?.status === 429 && retries > 0) {
-      console.log("⚠️ Kena limit, retry...");
-      await delay(15000);
-      return fetchData(retries - 1);
-    }
-    throw err;
-  }
+async function fetchData() {
+  return await axios.get("https://api.coingecko.com/api/v3/coins/markets", {
+    params: {
+      vs_currency: "usd",
+      order: "volume_desc",
+      per_page: PER_PAGE,
+      page: 1
+    },
+    timeout: 10000
+  });
 }
 
 // ================= MAIN =================
@@ -64,14 +55,12 @@ async function scan() {
     }
 
     let newData = {};
-    let signals = [];
+    let candidates = [];
 
     res.data.forEach(c => {
       const symbol = c.symbol.toUpperCase();
       const price = c.current_price;
       const volume = c.total_volume;
-
-      const priceIDR = price * USD_TO_IDR;
 
       const history = oldData[symbol] || [];
 
@@ -84,47 +73,36 @@ async function scan() {
 
         const volumeSpike = volume / (prev.volume || 1);
 
-        let label = "";
-        let emoji = "";
-        let tpPercent = 0;
-        let slPercent = 0;
+        // ================= SCORING =================
+        let score =
+          (change1 * 2) +
+          (change2 * 1.5) +
+          ((volumeSpike - 1) * 5);
 
-        // 🚀 BREAKOUT
-        if (change1 > 0.3 && volumeSpike > 1.3) {
-          label = "BREAKOUT";
-          emoji = "🚀";
-          tpPercent = 0.05;
-          slPercent = 0.03;
-        }
+        score = Math.max(0, Math.min(10, score));
 
-        // ✅ ENTRY
-        else if (change1 > 0.2 && change2 > 0.1 && volumeSpike > 1.2) {
-          label = "ENTRY";
-          emoji = "✅";
-          tpPercent = 0.04;
-          slPercent = 0.025;
-        }
+        // ================= FILTER MINIMUM =================
+        if (change1 > 0.15 && volumeSpike > 1.1) {
+          let label = "WATCH";
+          let emoji = "📡";
 
-        // ⚠️ EARLY
-        else if (change1 > 0.12 && volumeSpike > 1.15) {
-          label = "EARLY";
-          emoji = "⚠️";
-          tpPercent = 0.03;
-          slPercent = 0.02;
-        }
+          if (score > 7) {
+            label = "STRONG BUY";
+            emoji = "🚀";
+          } else if (score > 5) {
+            label = "BUY";
+            emoji = "🟢";
+          } else if (score > 3) {
+            label = "EARLY";
+            emoji = "🟡";
+          }
 
-        if (label) {
-          const entry = priceIDR;
-          const tp = entry * (1 + tpPercent);
-          const sl = entry * (1 - slPercent);
-
-          signals.push({
+          candidates.push({
             symbol,
             change: change1.toFixed(2),
             spike: volumeSpike.toFixed(2),
-            entry,
-            tp,
-            sl,
+            price: price * USD_TO_IDR,
+            score: score.toFixed(1),
             label,
             emoji
           });
@@ -134,39 +112,37 @@ async function scan() {
       newData[symbol] = [
         ...history,
         { price, volume }
-      ].slice(-4);
+      ].slice(-3);
     });
 
-    // ================= FILTER =================
-    if (!signals.length) {
-      console.log("⏳ Tidak ada sinyal...");
-      fs.writeFileSync(FILE_JSON, JSON.stringify(newData, null, 2));
-      return;
+    // ================= SORT TERBAIK =================
+    candidates.sort((a, b) => b.score - a.score);
+
+    let msg = "🔥 PRO TRADER SIGNAL\n\n";
+
+    if (candidates.length) {
+      candidates.slice(0, 3).forEach(c => {
+        msg += `${c.emoji} ${c.symbol} | +${c.change}%\n`;
+        msg += `Score: ${c.score}/10 | 🔥x${c.spike}\n`;
+        msg += `${c.label}\n`;
+        msg += `💰 Rp${c.price.toLocaleString("id-ID")}\n\n`;
+      });
+    } else {
+      msg += "📊 MARKET SEPI\nTidak ada momentum kuat\n\n";
     }
-
-    // ================= TELEGRAM =================
-    let msg = "🎯 SNIPER SIGNAL (AUTO ENTRY)\n\n";
-
-    signals.slice(0, 5).forEach(c => {
-      msg += `${c.emoji} ${c.symbol} | +${c.change}% | 🔥x${c.spike}\n`;
-      msg += `${c.label}\n`;
-      msg += `📥 Entry : Rp${Math.round(c.entry).toLocaleString("id-ID")}\n`;
-      msg += `🎯 TP    : Rp${Math.round(c.tp).toLocaleString("id-ID")}\n`;
-      msg += `🛑 SL    : Rp${Math.round(c.sl).toLocaleString("id-ID")}\n\n`;
-    });
 
     await sendTelegram(msg);
 
     fs.writeFileSync(FILE_JSON, JSON.stringify(newData, null, 2));
 
   } catch (err) {
-    console.error("❌ Fetch error:", err.message);
+    console.error("❌ Error:", err.message);
   }
 }
 
 // ================= LOOP =================
 async function runBot() {
-  console.log("🚀 Bot dimulai (AUTO TRADING MODE)");
+  console.log("🚀 Bot dimulai (PRO TRADER MODE)");
 
   for (let i = 1; i <= LOOP_COUNT; i++) {
     console.log(`\n⏱️ Scan ke-${i}`);

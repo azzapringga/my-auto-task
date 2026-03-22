@@ -7,12 +7,12 @@ const FILE_JSON = "data.json";
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-// CONFIG
+// CONFIG (🔥 SUDAH DISESUAIKAN BIAR ANTI 429)
 const USD_TO_IDR = 15000;
-const LOOP_COUNT = 6;          // jumlah scan per action
-const LOOP_INTERVAL = 20000;   // delay antar scan (20 detik)
-const PAGES = 2;               // 🔥 scan 2 halaman
-const PER_PAGE = 50;           // 50 koin per halaman
+const LOOP_COUNT = 4;           // lebih sedikit
+const LOOP_INTERVAL = 30000;    // 30 detik (AMAN)
+const PAGES = 1;                // 🔥 balik ke 1 page
+const PER_PAGE = 50;
 
 // Delay
 const delay = ms => new Promise(res => setTimeout(res, ms));
@@ -33,23 +33,23 @@ async function sendTelegram(message) {
   }
 }
 
-// ================= FETCH WITH RETRY =================
-async function fetchWithRetry(page, retries = 3) {
+// ================= FETCH =================
+async function fetchWithRetry(retries = 2) {
   try {
     return await axios.get("https://api.coingecko.com/api/v3/coins/markets", {
       params: {
         vs_currency: "usd",
-        order: "volume_desc", // fokus koin aktif
+        order: "volume_desc",
         per_page: PER_PAGE,
-        page: page
+        page: 1
       },
       timeout: 10000
     });
   } catch (err) {
     if (err.response?.status === 429 && retries > 0) {
       console.log("⚠️ Kena limit, retry...");
-      await delay(10000);
-      return fetchWithRetry(page, retries - 1);
+      await delay(15000);
+      return fetchWithRetry(retries - 1);
     }
     throw err;
   }
@@ -58,15 +58,7 @@ async function fetchWithRetry(page, retries = 3) {
 // ================= MAIN =================
 async function getCrypto() {
   try {
-    let allCoins = [];
-
-    // 🔥 ambil multi page
-    for (let p = 1; p <= PAGES; p++) {
-      const res = await fetchWithRetry(p);
-      allCoins = allCoins.concat(res.data);
-
-      await delay(2000); // jeda antar page
-    }
+    const res = await fetchWithRetry();
 
     let oldData = {};
     if (fs.existsSync(FILE_JSON)) {
@@ -74,9 +66,9 @@ async function getCrypto() {
     }
 
     let newData = {};
-    let fast = [], early = [];
+    let fast = [], early = [], micro = [];
 
-    allCoins.forEach(c => {
+    res.data.forEach(c => {
       const symbol = c.symbol.toUpperCase();
       const price = c.current_price;
       const priceIDR = price * USD_TO_IDR;
@@ -88,31 +80,27 @@ async function getCrypto() {
       if (last) {
         const change = ((price - last) / last) * 100;
 
-        // 🔥 FAST PUMP (lonjakan cepat)
-        if (change > 1.5 && volume > 500000000) {
-          fast.push({
-            symbol,
-            change: change.toFixed(2),
-            price: priceIDR
-          });
+        // 🔥 FAST PUMP
+        if (change > 1.2 && volume > 300000000) {
+          fast.push({ symbol, change: change.toFixed(2), price: priceIDR });
         }
 
-        // 🟢 EARLY MOMENTUM (awal naik)
-        if (change > 0.5 && change < 1.5 && volume > 200000000) {
-          early.push({
-            symbol,
-            change: change.toFixed(2),
-            price: priceIDR
-          });
+        // 🟢 EARLY MOMENTUM
+        if (change > 0.3 && change <= 1.2 && volume > 150000000) {
+          early.push({ symbol, change: change.toFixed(2), price: priceIDR });
+        }
+
+        // ⚪ MICRO TREND (awal banget)
+        if (change > 0.15 && change <= 0.3 && volume > 100000000) {
+          micro.push({ symbol, change: change.toFixed(2), price: priceIDR });
         }
       }
 
-      // simpan 3 histori terakhir
       newData[symbol] = [...history, price].slice(-3);
     });
 
     // ================= FORMAT TELEGRAM =================
-    let msg = "🚀 CRYPTO SCANNER (SMART REALTIME)\n\n";
+    let msg = "🚀 CRYPTO SCANNER (EARLY MODE)\n\n";
 
     if (fast.length) {
       msg += "🔥 FAST PUMP\n";
@@ -130,7 +118,15 @@ async function getCrypto() {
       msg += "\n";
     }
 
-    if (fast.length || early.length) {
+    if (micro.length) {
+      msg += "⚪ MICRO TREND\n";
+      micro.forEach(c => {
+        msg += `${c.symbol} | +${c.change}% | Rp${c.price.toLocaleString("id-ID")}\n`;
+      });
+      msg += "\n";
+    }
+
+    if (fast.length || early.length || micro.length) {
       await sendTelegram(msg);
     } else {
       console.log("⏳ Tidak ada sinyal...");
@@ -145,14 +141,14 @@ async function getCrypto() {
 
 // ================= LOOP =================
 async function runBot() {
-  console.log("🚀 Bot dimulai (SMART MODE - 100 COINS)");
+  console.log("🚀 Bot dimulai (EARLY MODE - STABLE)");
 
   for (let i = 1; i <= LOOP_COUNT; i++) {
     console.log(`\n⏱️ Scan ke-${i}`);
 
     await getCrypto();
 
-    await delay(LOOP_INTERVAL); // 🔥 anti 429
+    await delay(LOOP_INTERVAL);
   }
 
   console.log("✅ Selesai 1 siklus");

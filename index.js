@@ -3,19 +3,32 @@ const fs = require("fs");
 
 const FILE_JSON = "data.json";
 
-// Telegram
+// Telegram config dari GitHub Secrets
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-// CONFIG (HEMAT MODE)
-const USD_TO_IDR = 15000;
-const LOOP_COUNT = 2;           // 🔥 hemat
-const LOOP_INTERVAL = 60000;    // 1 menit
-const PER_PAGE = 50;
+// Default fallback kurs (jika gagal fetch)
+let USD_TO_IDR = 16000;
+
+// CONFIG BOT
+const LOOP_COUNT = 6;        // berapa kali scan per job
+const LOOP_INTERVAL = 30000; // jeda antar scan (ms)
+const PER_PAGE = 50;          // jumlah koin per halaman
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
-// ================= TELEGRAM =================
+// ==================== FETCH KURS HARI INI ====================
+async function fetchUSDToIDR() {
+  try {
+    const res = await axios.get("https://api.exchangerate.host/latest?base=USD&symbols=IDR");
+    USD_TO_IDR = res.data.rates.IDR;
+    console.log("✅ Kurs USD->IDR hari ini:", USD_TO_IDR.toFixed(2));
+  } catch (err) {
+    console.error("❌ Gagal fetch kurs, pakai default:", USD_TO_IDR);
+  }
+}
+
+// ==================== TELEGRAM ====================
 async function sendTelegram(message) {
   if (!TELEGRAM_TOKEN || !CHAT_ID) return;
 
@@ -31,35 +44,47 @@ async function sendTelegram(message) {
   }
 }
 
-// ================= FETCH =================
-async function fetchData() {
-  return await axios.get("https://api.coingecko.com/api/v3/coins/markets", {
-    params: {
-      vs_currency: "usd",
-      order: "volume_desc",
-      per_page: PER_PAGE,
-      page: 1
-    },
-    timeout: 10000
-  });
+// ==================== FETCH DATA KOIN ====================
+async function fetchCoins(page = 1, retries = 2) {
+  try {
+    return await axios.get("https://api.coingecko.com/api/v3/coins/markets", {
+      params: {
+        vs_currency: "usd",
+        order: "volume_desc",
+        per_page: PER_PAGE,
+        page,
+      },
+      timeout: 10000
+    });
+  } catch (err) {
+    if (err.response?.status === 429 && retries > 0) {
+      console.log("⚠️ Kena limit, retry...");
+      await delay(15000);
+      return fetchCoins(page, retries - 1);
+    }
+    throw err;
+  }
 }
 
-// ================= MAIN =================
+// ==================== SCAN & SIGNAL ====================
 async function scan() {
   try {
-    const res = await fetchData();
+    // fetch 2 halaman untuk lebih banyak koin
+    const res1 = await fetchCoins(1);
+    const res2 = await fetchCoins(2);
+    const allCoins = [...res1.data, ...res2.data];
 
+    // load data lama
     let oldData = {};
-    if (fs.existsSync(FILE_JSON)) {
-      oldData = JSON.parse(fs.readFileSync(FILE_JSON));
-    }
+    if (fs.existsSync(FILE_JSON)) oldData = JSON.parse(fs.readFileSync(FILE_JSON));
 
     let newData = {};
-    let candidates = [];
+    let signals = [];
 
-    res.data.forEach(c => {
+    allCoins.forEach(c => {
       const symbol = c.symbol.toUpperCase();
-      const price = c.current_price;
+      const priceUSD = c.current_price;
+      const priceIDR = priceUSD * USD_TO_IDR;
       const volume = c.total_volume;
 
       const history = oldData[symbol] || [];
@@ -68,81 +93,70 @@ async function scan() {
         const prev = history[history.length - 1];
         const prev2 = history[history.length - 2];
 
-        const change1 = ((price - prev.price) / prev.price) * 100;
+        const change1 = ((priceUSD - prev.price) / prev.price) * 100;
         const change2 = ((prev.price - prev2.price) / prev2.price) * 100;
-
         const volumeSpike = volume / (prev.volume || 1);
 
-        // ================= SCORING =================
-        let score =
-          (change1 * 2) +
-          (change2 * 1.5) +
-          ((volumeSpike - 1) * 5);
+        let label = "";
+        let emoji = "";
 
-        score = Math.max(0, Math.min(10, score));
+        if (change1 > 5) {
+          label = "SKIP (TERLAMBAT)";
+          emoji = "❌";
+        } else if (change1 > 0.3 && change2 > 0.2 && volumeSpike > 1.5) {
+          label = "VALID ENTRY";
+          emoji = "✅";
+        } else if (change1 > 0.2 && volumeSpike > 1.3) {
+          label = "RISKY";
+          emoji = "⚠️";
+        } else if (change1 > 0.15 && volumeSpike > 1.2) {
+          label = "WATCH";
+          emoji = "👀";
+        }
 
-        // ================= FILTER MINIMUM =================
-        if (change1 > 0.15 && volumeSpike > 1.1) {
-          let label = "WATCH";
-          let emoji = "📡";
-
-          if (score > 7) {
-            label = "STRONG BUY";
-            emoji = "🚀";
-          } else if (score > 5) {
-            label = "BUY";
-            emoji = "🟢";
-          } else if (score > 3) {
-            label = "EARLY";
-            emoji = "🟡";
-          }
-
-          candidates.push({
+        if (label) {
+          signals.push({
             symbol,
             change: change1.toFixed(2),
             spike: volumeSpike.toFixed(2),
-            price: price * USD_TO_IDR,
-            score: score.toFixed(1),
+            price: priceIDR,
             label,
             emoji
           });
         }
       }
 
-      newData[symbol] = [
-        ...history,
-        { price, volume }
-      ].slice(-3);
+      newData[symbol] = [...history, { price: priceUSD, volume }].slice(-4);
     });
 
-    // ================= SORT TERBAIK =================
-    candidates.sort((a, b) => b.score - a.score);
-
-    let msg = "🔥 PRO TRADER SIGNAL\n\n";
-
-    if (candidates.length) {
-      candidates.slice(0, 3).forEach(c => {
-        msg += `${c.emoji} ${c.symbol} | +${c.change}%\n`;
-        msg += `Score: ${c.score}/10 | 🔥x${c.spike}\n`;
-        msg += `${c.label}\n`;
-        msg += `💰 Rp${c.price.toLocaleString("id-ID")}\n\n`;
-      });
+    // ==================== TELEGRAM ====================
+    if (signals.length) {
+      let msg = "🔥 PRO TRADER SIGNAL\n\n";
+      signals
+        .sort((a,b)=>b.change-a.change)
+        .slice(0, 7)
+        .forEach(c => {
+          msg += `${c.emoji} ${c.symbol} | +${c.change}% | 🔥x${c.spike}\n`;
+          msg += `${c.label}\n💰 Rp${c.price.toLocaleString("id-ID")}\n\n`;
+        });
+      await sendTelegram(msg);
     } else {
-      msg += "📊 MARKET SEPI\nTidak ada momentum kuat\n\n";
+      console.log("⚠️ Tidak ada sinyal kuat");
     }
-
-    await sendTelegram(msg);
 
     fs.writeFileSync(FILE_JSON, JSON.stringify(newData, null, 2));
 
   } catch (err) {
-    console.error("❌ Error:", err.message);
+    console.error("❌ Fetch error:", err.message);
   }
 }
 
-// ================= LOOP =================
+// ==================== LOOP BOT ====================
 async function runBot() {
   console.log("🚀 Bot dimulai (PRO TRADER MODE)");
+
+  // ambil kurs USD->IDR hari ini sekali
+  await fetchUSDToIDR();
 
   for (let i = 1; i <= LOOP_COUNT; i++) {
     console.log(`\n⏱️ Scan ke-${i}`);

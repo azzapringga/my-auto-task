@@ -86,37 +86,45 @@ async function scan() {
 
         let label = "";
         let emoji = "";
-
-        // ❌ SKIP (telat)
-        if (change1 > 3) {
-          label = "SKIP (TERLAMBAT)";
-          emoji = "❌";
-        }
+        let tpPercent = 0;
+        let slPercent = 0;
 
         // 🚀 BREAKOUT
-        else if (change1 > 0.4 && volumeSpike > 1.4) {
+        if (change1 > 0.3 && volumeSpike > 1.3) {
           label = "BREAKOUT";
           emoji = "🚀";
+          tpPercent = 0.05;
+          slPercent = 0.03;
         }
 
-        // ✅ VALID ENTRY
-        else if (change1 > 0.25 && change2 > 0.1 && volumeSpike > 1.3) {
-          label = "VALID ENTRY";
+        // ✅ ENTRY
+        else if (change1 > 0.2 && change2 > 0.1 && volumeSpike > 1.2) {
+          label = "ENTRY";
           emoji = "✅";
+          tpPercent = 0.04;
+          slPercent = 0.025;
         }
 
-        // ⚠️ RISKY
-        else if (change1 > 0.15 && volumeSpike > 1.2) {
-          label = "RISKY";
+        // ⚠️ EARLY
+        else if (change1 > 0.12 && volumeSpike > 1.15) {
+          label = "EARLY";
           emoji = "⚠️";
+          tpPercent = 0.03;
+          slPercent = 0.02;
         }
 
         if (label) {
+          const entry = priceIDR;
+          const tp = entry * (1 + tpPercent);
+          const sl = entry * (1 - slPercent);
+
           signals.push({
             symbol,
             change: change1.toFixed(2),
             spike: volumeSpike.toFixed(2),
-            price: priceIDR,
+            entry,
+            tp,
+            sl,
             label,
             emoji
           });
@@ -129,28 +137,25 @@ async function scan() {
       ].slice(-4);
     });
 
-    // ================= TELEGRAM =================
-    if (signals.length) {
-      let msg = "🎯 CRYPTO SNIPER ADAPTIVE\n\n";
-
-      signals.slice(0, 7).forEach(c => {
-        msg += `${c.emoji} ${c.symbol} | +${c.change}% | 🔥x${c.spike}\n`;
-        msg += `${c.label}\n💰 Rp${c.price.toLocaleString("id-ID")}\n\n`;
-      });
-
-      await sendTelegram(msg);
-    } else {
-      console.log("⚠️ Tidak ada sinyal kuat");
-
-      let msg = "📡 WATCHLIST\n\n";
-
-      res.data.slice(0, 5).forEach(c => {
-        const priceIDR = c.current_price * USD_TO_IDR;
-        msg += `${c.symbol.toUpperCase()} | Rp${priceIDR.toLocaleString("id-ID")}\n`;
-      });
-
-      await sendTelegram(msg);
+    // ================= FILTER =================
+    if (!signals.length) {
+      console.log("⏳ Tidak ada sinyal...");
+      fs.writeFileSync(FILE_JSON, JSON.stringify(newData, null, 2));
+      return;
     }
+
+    // ================= TELEGRAM =================
+    let msg = "🎯 SNIPER SIGNAL (AUTO ENTRY)\n\n";
+
+    signals.slice(0, 5).forEach(c => {
+      msg += `${c.emoji} ${c.symbol} | +${c.change}% | 🔥x${c.spike}\n`;
+      msg += `${c.label}\n`;
+      msg += `📥 Entry : Rp${Math.round(c.entry).toLocaleString("id-ID")}\n`;
+      msg += `🎯 TP    : Rp${Math.round(c.tp).toLocaleString("id-ID")}\n`;
+      msg += `🛑 SL    : Rp${Math.round(c.sl).toLocaleString("id-ID")}\n\n`;
+    });
+
+    await sendTelegram(msg);
 
     fs.writeFileSync(FILE_JSON, JSON.stringify(newData, null, 2));
 
@@ -161,7 +166,7 @@ async function scan() {
 
 // ================= LOOP =================
 async function runBot() {
-  console.log("🚀 Bot dimulai (SNIPER ADAPTIVE)");
+  console.log("🚀 Bot dimulai (AUTO TRADING MODE)");
 
   for (let i = 1; i <= LOOP_COUNT; i++) {
     console.log(`\n⏱️ Scan ke-${i}`);

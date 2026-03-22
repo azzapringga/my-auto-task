@@ -7,7 +7,7 @@ const FILE_JSON = "data.json";
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-// CONFIG (AMAN DARI 429)
+// CONFIG
 const USD_TO_IDR = 15000;
 const LOOP_COUNT = 4;
 const LOOP_INTERVAL = 30000;
@@ -66,10 +66,9 @@ async function scan() {
 
     let newData = {};
 
-    let fast = [];
+    let entry = [];
     let early = [];
     let micro = [];
-    let entry = [];
 
     res.data.forEach(c => {
       const symbol = c.symbol.toUpperCase();
@@ -77,7 +76,6 @@ async function scan() {
       const volume = c.total_volume;
 
       const priceIDR = price * USD_TO_IDR;
-      const volumeIDR = volume * USD_TO_IDR;
 
       const history = oldData[symbol] || [];
       const last = history.slice(-1)[0];
@@ -89,37 +87,30 @@ async function scan() {
         const change = ((price - prevPrice) / prevPrice) * 100;
         const volumeSpike = volume / prevVolume;
 
-        // 🔥 FAST PUMP
-        if (change > 1.5 && volumeIDR > 300000000) {
-          fast.push({ symbol, change: change.toFixed(2), price: priceIDR });
-        }
-
-        // 🟢 EARLY MOMENTUM (volume spike)
-        if (change > 0.4 && volumeSpike > 1.5) {
-          early.push({
-            symbol,
-            change: change.toFixed(2),
-            spike: volumeSpike.toFixed(2),
-            price: priceIDR
-          });
-        }
-
-        // ⚪ MICRO TREND
-        if (change > 0.15 && change <= 0.4 && volumeSpike > 1.2) {
-          micro.push({
-            symbol,
-            change: change.toFixed(2),
-            price: priceIDR
-          });
-        }
-
-        // 🚀 ENTRY SIGNAL (INI YANG PALING PENTING)
-        if (change > 0.5 && volumeSpike > 2) {
+        // 🔥 ENTRY (lebih sensitif)
+        if (change > 0.3 && volumeSpike > 1.5) {
           entry.push({
             symbol,
             change: change.toFixed(2),
             spike: volumeSpike.toFixed(2),
             price: priceIDR
+          });
+        }
+
+        // 🟢 EARLY
+        else if (change > 0.2 && volumeSpike > 1.3) {
+          early.push({
+            symbol,
+            change: change.toFixed(2),
+            spike: volumeSpike.toFixed(2)
+          });
+        }
+
+        // ⚪ MICRO
+        else if (change > 0.1 && volumeSpike > 1.1) {
+          micro.push({
+            symbol,
+            change: change.toFixed(2)
           });
         }
       }
@@ -131,21 +122,13 @@ async function scan() {
     });
 
     // ================= TELEGRAM =================
-    let msg = "🚀 CRYPTO SCANNER PRO (SMART ENTRY)\n\n";
+    let msg = "🚀 CRYPTO SCANNER (SMART SENSITIF)\n\n";
 
     if (entry.length) {
-      msg += "🔥 *ENTRY SIGNAL (POTENSI NAIK)* 🔥\n";
+      msg += "🔥 *ENTRY SIGNAL*\n";
       entry.forEach(c => {
-        msg += `${c.symbol} | +${c.change}% | 🔥x${c.spike}\n💰 Entry: Rp${c.price.toLocaleString("id-ID")}\n\n`;
+        msg += `${c.symbol} | +${c.change}% | 🔥x${c.spike}\n💰 Rp${c.price.toLocaleString("id-ID")}\n\n`;
       });
-    }
-
-    if (fast.length) {
-      msg += "🚀 FAST PUMP\n";
-      fast.forEach(c => {
-        msg += `${c.symbol} | +${c.change}% | Rp${c.price.toLocaleString("id-ID")}\n`;
-      });
-      msg += "\n";
     }
 
     if (early.length) {
@@ -164,11 +147,19 @@ async function scan() {
       msg += "\n";
     }
 
-    if (entry.length || fast.length || early.length || micro.length) {
-      await sendTelegram(msg);
-    } else {
-      console.log("⏳ Tidak ada sinyal...");
+    // 🔥 FALLBACK BIAR NGGAK SEPI
+    if (!entry.length && !early.length && !micro.length) {
+      let fallback = res.data.slice(0, 5);
+
+      msg = "📊 MARKET UPDATE (TOP VOLUME)\n\n";
+
+      fallback.forEach(c => {
+        const priceIDR = c.current_price * USD_TO_IDR;
+        msg += `${c.symbol.toUpperCase()} | Rp${priceIDR.toLocaleString("id-ID")}\n`;
+      });
     }
+
+    await sendTelegram(msg);
 
     fs.writeFileSync(FILE_JSON, JSON.stringify(newData, null, 2));
 
@@ -179,7 +170,7 @@ async function scan() {
 
 // ================= LOOP =================
 async function runBot() {
-  console.log("🚀 Bot dimulai (SMART MODE + ENTRY)");
+  console.log("🚀 Bot dimulai (SMART SENSITIF MODE)");
 
   for (let i = 1; i <= LOOP_COUNT; i++) {
     console.log(`\n⏱️ Scan ke-${i}`);

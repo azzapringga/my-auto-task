@@ -3,21 +3,18 @@ const fs = require("fs");
 
 const FILE_JSON = "data.json";
 
-// Telegram
+// Telegram config
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-// CONFIG
-const USD_TO_IDR = 15000;  // tetap statis
-const LOOP_COUNT = 6;      // jumlah scan per siklus
-const LOOP_INTERVAL = 50000; // 50 detik per scan
-const PER_PAGE = 50;       // koin per page
-const TOTAL_PAGES = 2;     // scan 2 halaman → total 100 koin
-const MAX_RETRIES = 2;     // retry saat 429
+// Konstanta
+const USD_TO_IDR = 15000;       // tetap statis, hemat limit
+const PER_PAGE = 70;            // scan 70 koin potensial
+const LOOP_COUNT = 5;           // loop mini lebih agresif
+const LOOP_INTERVAL = 8000;     // 8 detik antar scan mini
+const EARLY_PUMP_THRESHOLD = 0.3;  // lebih sensitif
 
-const delay = ms => new Promise(res => setTimeout(res, ms));
-
-// ================= TELEGRAM =================
+// Telegram function
 async function sendTelegram(message) {
   if (!TELEGRAM_TOKEN || !CHAT_ID) return;
   try {
@@ -32,122 +29,75 @@ async function sendTelegram(message) {
   }
 }
 
-// ================= FETCH =================
-async function fetchData(page = 1, retries = MAX_RETRIES) {
+// Fetch market data
+async function fetchData(retries = 2) {
   try {
     return await axios.get("https://api.coingecko.com/api/v3/coins/markets", {
-      params: {
-        vs_currency: "usd",
-        order: "volume_desc",
-        per_page: PER_PAGE,
-        page
-      },
+      params: { vs_currency: "usd", order: "market_cap_desc", per_page: PER_PAGE, page: 1 },
       timeout: 10000
     });
   } catch (err) {
     if (err.response?.status === 429 && retries > 0) {
       console.log("⚠️ Kena limit, retry...");
-      await delay(20000);
-      return fetchData(page, retries - 1);
+      await new Promise(r=>setTimeout(r,15000));
+      return fetchData(retries-1);
     }
     throw err;
   }
 }
 
-// ================= SCAN =================
-async function scan() {
-  try {
-    let allCoins = [];
+// Analisa koin
+async function analyze() {
+  const res = await fetchData();
+  let oldData = fs.existsSync(FILE_JSON) ? JSON.parse(fs.readFileSync(FILE_JSON)) : {};
+  let newData = {};
+  let signals = [];
 
-    for (let p = 1; p <= TOTAL_PAGES; p++) {
-      const res = await fetchData(p);
-      allCoins = allCoins.concat(res.data);
+  res.data.forEach(c => {
+    const symbol = c.symbol.toUpperCase();
+    const priceUSD = c.current_price;
+    const priceIDR = priceUSD * USD_TO_IDR;
+    const volume = c.total_volume;
+
+    const history = oldData[symbol] || [];
+    let change = 0;
+    if (history.length) {
+      const prev = history[history.length-1];
+      change = prev>0 ? (priceUSD - prev)/prev*100 : 0;
     }
 
-    let oldData = {};
-    if (fs.existsSync(FILE_JSON)) oldData = JSON.parse(fs.readFileSync(FILE_JSON));
+    // Kriteria top gainer / early pump
+    if (change >= EARLY_PUMP_THRESHOLD && volume > 1000) {
+      signals.push({ symbol, change: change.toFixed(2), price: priceIDR, volume });
+    }
 
-    let newData = {};
-    let signals = [];
+    newData[symbol] = [...history, priceUSD].slice(-2);
+  });
 
-    allCoins.forEach(c => {
-      const symbol = c.symbol.toUpperCase();
-      const price = c.current_price;
-      const volume = c.total_volume;
-      const priceIDR = price * USD_TO_IDR;
+  fs.writeFileSync(FILE_JSON, JSON.stringify(newData,null,2));
+  return signals;
+}
 
-      const history = oldData[symbol] || [];
+// Main loop mini scan
+async function runBot() {
+  console.log("🚀 Bot dimulai (Hybrid Sniper Aggressive Mode)");
 
-      if (history.length >= 2) {
-        const prev = history[history.length - 1];
-        const prev2 = history[history.length - 2];
-
-        const change1 = ((price - prev.price) / prev.price) * 100;
-        const change2 = ((prev.price - prev2.price) / prev2.price) * 100;
-        const volumeSpike = volume / (prev.volume || 1);
-
-        let label = "";
-        let emoji = "";
-
-        if (change1 > 5) {
-          label = "SKIP (TERLAMBAT)";
-          emoji = "❌";
-        } else if (change1 > 0.3 && change2 > 0.15 && volumeSpike > 1.4) {
-          label = "VALID ENTRY";
-          emoji = "✅";
-        } else if (change1 < -0.3 && volumeSpike < 0.8) {
-          label = "EXIT POINT";
-          emoji = "🛑";
-        } else if (change1 > 0.2 && volumeSpike > 1.2) {
-          label = "RISKY";
-          emoji = "⚠️";
-        }
-
-        if (label) {
-          signals.push({
-            symbol,
-            change: change1.toFixed(2),
-            spike: volumeSpike.toFixed(2),
-            price: priceIDR,
-            label,
-            emoji
-          });
-        }
-      }
-
-      newData[symbol] = [...history, { price, volume }].slice(-3);
-    });
-
-    // ================= TELEGRAM =================
+  for (let i=1;i<=LOOP_COUNT;i++) {
+    console.log(`⏱️ Scan mini ke-${i}`);
+    const signals = await analyze();
     if (signals.length) {
-      let msg = "🔥 PRO TRADER HYBRID SIGNAL (100 COINS)\n\n";
-      signals.slice(0, 7).forEach(c => {
-        msg += `${c.emoji} ${c.symbol} | +${c.change}% | 🔥x${c.spike}\n`;
-        msg += `${c.label}\n💰 Rp${c.price.toLocaleString("id-ID")}\n\n`;
+      let msg = "*🚀 CRYPTO TOP GAINER ALERT*\n\n";
+      signals.forEach(c=>{
+        msg += `🔥 ${c.symbol} | +${c.change}% | 💰 Rp${c.price.toLocaleString("id-ID")}\n`;
       });
       await sendTelegram(msg);
     } else {
       console.log("⚠️ Tidak ada signal kuat, skip Telegram");
     }
-
-    fs.writeFileSync(FILE_JSON, JSON.stringify(newData, null, 2));
-
-  } catch (err) {
-    console.error("❌ Fetch error:", err.message);
-  }
-}
-
-// ================= LOOP =================
-async function runBot() {
-  console.log("🚀 Bot dimulai (PRO TRADER HYBRID OPTIMAL 100 COINS)");
-
-  for (let i = 1; i <= LOOP_COUNT; i++) {
-    console.log(`\n⏱️ Scan ke-${i}`);
-    await scan();
-    await delay(LOOP_INTERVAL);
+    await new Promise(r=>setTimeout(r, LOOP_INTERVAL));
   }
 
-  console.log("✅ Selesai 1 siklus");
+  console.log("✅ Selesai 1 run");
 }
 
 runBot();

@@ -1,332 +1,342 @@
 {
-  "XRP": [
+  "ETH": [
     {
-      "price": 1.31,
-      "volume": 867113500
+      "price": 2056.55,
+      "volume": 4855021740
     },
     {
-      "price": 1.31,
-      "volume": 867113500
+      "price": 2056.55,
+      "volume": 4855021740
     }
   ],
   "BNB": [
     {
-      "price": 590.99,
-      "volume": 467406632
+      "price": 592.6,
+      "volume": 463029557
     },
     {
-      "price": 590.99,
-      "volume": 467406632
+      "price": 592.6,
+      "volume": 463029557
+    }
+  ],
+  "XRP": [
+    {
+      "price": 1.31,
+      "volume": 872726971
+    },
+    {
+      "price": 1.31,
+      "volume": 872726971
     }
   ],
   "USDC": [
     {
-      "price": 0.99989,
-      "volume": 3771148625
+      "price": 1,
+      "volume": 3667690707
     },
     {
-      "price": 0.99989,
-      "volume": 3771148625
+      "price": 1,
+      "volume": 3667690707
     }
   ],
   "SOL": [
     {
-      "price": 80.85,
-      "volume": 1702082373
+      "price": 80.93,
+      "volume": 1672953484
     },
     {
-      "price": 80.85,
-      "volume": 1702082373
+      "price": 80.93,
+      "volume": 1672953484
     }
   ],
   "TRX": [
     {
-      "price": 0.31732,
-      "volume": 379514435
+      "price": 0.317134,
+      "volume": 369184953
     },
     {
-      "price": 0.31732,
-      "volume": 379514435
+      "price": 0.317134,
+      "volume": 369184953
     }
   ],
   "FIGR_HELOC": [
     {
-      "price": 1.034,
-      "volume": 13437960
+      "price": 1.022,
+      "volume": 871474
     },
     {
-      "price": 1.034,
-      "volume": 13437960
+      "price": 1.022,
+      "volume": 871474
     }
   ],
   "DOGE": [
     {
-      "price": 0.091824,
-      "volume": 443213727
+      "price": 0.092253,
+      "volume": 432881470
     },
     {
-      "price": 0.091824,
-      "volume": 443213727
+      "price": 0.092253,
+      "volume": 432881470
     }
   ],
   "USDS": [
     {
-      "price": 0.999929,
-      "volume": 39531897
+      "price": 0.999932,
+      "volume": 40758879
     },
     {
-      "price": 0.999929,
-      "volume": 39531897
+      "price": 0.999932,
+      "volume": 40758879
     }
   ],
   "WBT": [
     {
-      "price": 51.51,
-      "volume": 15912695
+      "price": 51.43,
+      "volume": 15639151
     },
     {
-      "price": 51.51,
-      "volume": 15912695
+      "price": 51.43,
+      "volume": 15639151
     }
   ],
   "LEO": [
     {
-      "price": 10.08,
-      "volume": 271191
+      "price": 10.07,
+      "volume": 263717
     },
     {
-      "price": 10.08,
-      "volume": 271191
+      "price": 10.07,
+      "volume": 263717
     }
   ],
   "ADA": [
     {
-      "price": 0.245642,
-      "volume": 243590931
+      "price": 0.247441,
+      "volume": 224576567
     },
     {
-      "price": 0.245642,
-      "volume": 243590931
+      "price": 0.247441,
+      "volume": 224576567
     }
   ],
   "BCH": [
     {
-      "price": 442.37,
-      "volume": 95155341
+      "price": 442.05,
+      "volume": 94485532
     },
     {
-      "price": 442.37,
-      "volume": 95155341
+      "price": 442.05,
+      "volume": 94485532
     }
   ],
   "HYPE": [
     {
-      "price": 35.92,
-      "volume": 89100289
+      "price": 36.06,
+      "volume": 87595831
     },
     {
-      "price": 35.92,
-      "volume": 89100289
+      "price": 36.06,
+      "volume": 87595831
     }
   ],
   "LINK": [
     {
-      "price": 8.68,
-      "volume": 129757397
+      "price": 8.69,
+      "volume": 128400267
     },
     {
-      "price": 8.68,
-      "volume": 129757397
-    }
-  ],
-  "USDE": [
-    {
-      "price": 0.999649,
-      "volume": 74009599
-    },
-    {
-      "price": 0.999649,
-      "volume": 74009599
+      "price": 8.69,
+      "volume": 128400267
     }
   ],
   "XMR": [
     {
-      "price": 317.58,
-      "volume": 60992762
+      "price": 319.83,
+      "volume": 61295446
     },
     {
-      "price": 317.58,
-      "volume": 60992762
+      "price": 319.83,
+      "volume": 61295446
+    }
+  ],
+  "USDE": [
+    {
+      "price": 0.999737,
+      "volume": 65365869
+    },
+    {
+      "price": 0.999737,
+      "volume": 65365869
     }
   ],
   "CC": [
     {
-      "price": 0.139776,
-      "volume": 4531119
+      "price": 0.139738,
+      "volume": 4209784
     },
     {
-      "price": 0.139776,
-      "volume": 4531119
+      "price": 0.139738,
+      "volume": 4209784
     }
   ],
   "XLM": [
     {
-      "price": 0.160859,
-      "volume": 66454395
+      "price": 0.161409,
+      "volume": 65943865
     },
     {
-      "price": 0.160859,
-      "volume": 66454395
+      "price": 0.161409,
+      "volume": 65943865
     }
   ],
   "M": [
     {
-      "price": 2.68,
-      "volume": 11212402
+      "price": 2.67,
+      "volume": 10721631
     },
     {
-      "price": 2.68,
-      "volume": 11212402
+      "price": 2.67,
+      "volume": 10721631
     }
   ],
   "DAI": [
     {
-      "price": 0.999854,
-      "volume": 134159924
+      "price": 0.999892,
+      "volume": 132174961
     },
     {
-      "price": 0.999854,
-      "volume": 134159924
+      "price": 0.999892,
+      "volume": 132174961
     }
   ],
   "USD1": [
     {
-      "price": 0.999873,
-      "volume": 621956305
+      "price": 0.999933,
+      "volume": 638929027
     },
     {
-      "price": 0.999873,
-      "volume": 621956305
-    }
-  ],
-  "LTC": [
-    {
-      "price": 53.49,
-      "volume": 201602578
-    },
-    {
-      "price": 53.49,
-      "volume": 201602578
+      "price": 0.999933,
+      "volume": 638929027
     }
   ],
   "ZEC": [
     {
-      "price": 247.47,
-      "volume": 242442585
+      "price": 251.8,
+      "volume": 247248763
     },
     {
-      "price": 247.47,
-      "volume": 242442585
+      "price": 251.8,
+      "volume": 247248763
+    }
+  ],
+  "LTC": [
+    {
+      "price": 53.67,
+      "volume": 199301399
+    },
+    {
+      "price": 53.67,
+      "volume": 199301399
     }
   ],
   "PYUSD": [
     {
-      "price": 0.999987,
-      "volume": 41970629
+      "price": 1,
+      "volume": 48235886
     },
     {
-      "price": 0.999987,
-      "volume": 41970629
+      "price": 1,
+      "volume": 48235886
     }
   ],
   "AVAX": [
     {
-      "price": 8.93,
-      "volume": 120718151
+      "price": 9.04,
+      "volume": 117890406
     },
     {
-      "price": 8.93,
-      "volume": 120718151
+      "price": 9.04,
+      "volume": 117890406
     }
   ],
   "HBAR": [
     {
-      "price": 0.086961,
-      "volume": 37302597
+      "price": 0.087426,
+      "volume": 37915032
     },
     {
-      "price": 0.086961,
-      "volume": 37302597
+      "price": 0.087426,
+      "volume": 37915032
     }
   ],
   "RAIN": [
     {
-      "price": 0.00737326,
-      "volume": 24786863
+      "price": 0.00735903,
+      "volume": 24259883
     },
     {
-      "price": 0.00737326,
-      "volume": 24786863
+      "price": 0.00735903,
+      "volume": 24259883
     }
   ],
   "SHIB": [
     {
-      "price": 0.00000591,
-      "volume": 74437921
+      "price": 0.00000598,
+      "volume": 75628510
     },
     {
-      "price": 0.00000591,
-      "volume": 74437921
+      "price": 0.00000598,
+      "volume": 75628510
     }
   ],
   "SUI": [
     {
-      "price": 0.865545,
-      "volume": 166577328
+      "price": 0.870468,
+      "volume": 163580959
     },
     {
-      "price": 0.865545,
-      "volume": 166577328
+      "price": 0.870468,
+      "volume": 163580959
+    }
+  ],
+  "WLFI": [
+    {
+      "price": 0.099904,
+      "volume": 33983615
+    },
+    {
+      "price": 0.099904,
+      "volume": 33983615
     }
   ],
   "TON": [
     {
       "price": 1.23,
-      "volume": 41136930
+      "volume": 40499752
     },
     {
       "price": 1.23,
-      "volume": 41136930
-    }
-  ],
-  "WLFI": [
-    {
-      "price": 0.098789,
-      "volume": 33199511
-    },
-    {
-      "price": 0.098789,
-      "volume": 33199511
+      "volume": 40499752
     }
   ],
   "CRO": [
     {
-      "price": 0.069731,
-      "volume": 7393684
+      "price": 0.069923,
+      "volume": 7240930
     },
     {
-      "price": 0.069731,
-      "volume": 7393684
+      "price": 0.069923,
+      "volume": 7240930
     }
   ],
   "TAO": [
     {
-      "price": 304.19,
-      "volume": 162550634
+      "price": 305.14,
+      "volume": 160040869
     },
     {
-      "price": 304.19,
-      "volume": 162550634
+      "price": 305.14,
+      "volume": 160040869
     }
   ],
   "USYC": [
@@ -341,22 +351,22 @@
   ],
   "XAUT": [
     {
-      "price": 4642.96,
-      "volume": 135556524
+      "price": 4640.61,
+      "volume": 145382876
     },
     {
-      "price": 4642.96,
-      "volume": 135556524
+      "price": 4640.61,
+      "volume": 145382876
     }
   ],
   "PAXG": [
     {
-      "price": 4656.96,
-      "volume": 43927744
+      "price": 4653.93,
+      "volume": 49632726
     },
     {
-      "price": 4656.96,
-      "volume": 43927744
+      "price": 4653.93,
+      "volume": 49632726
     }
   ],
   "BUIDL": [
@@ -371,212 +381,212 @@
   ],
   "MNT": [
     {
-      "price": 0.672377,
-      "volume": 18602211
+      "price": 0.672327,
+      "volume": 18603013
     },
     {
-      "price": 0.672377,
-      "volume": 18602211
+      "price": 0.672327,
+      "volume": 18603013
     }
   ],
   "DOT": [
     {
-      "price": 1.25,
-      "volume": 59098144
+      "price": 1.26,
+      "volume": 59747860
     },
     {
-      "price": 1.25,
-      "volume": 59098144
+      "price": 1.26,
+      "volume": 59747860
     }
   ],
   "UNI": [
     {
-      "price": 3.13,
-      "volume": 117494712
+      "price": 3.14,
+      "volume": 117293747
     },
     {
-      "price": 3.13,
-      "volume": 117494712
+      "price": 3.14,
+      "volume": 117293747
     }
   ],
   "USDG": [
     {
-      "price": 1,
-      "volume": 23506089
+      "price": 0.999962,
+      "volume": 26957331
     },
     {
-      "price": 1,
-      "volume": 23506089
+      "price": 0.999962,
+      "volume": 26957331
     }
   ],
   "PI": [
     {
-      "price": 0.173061,
-      "volume": 11649021
+      "price": 0.17282,
+      "volume": 11729002
     },
     {
-      "price": 0.173061,
-      "volume": 11649021
+      "price": 0.17282,
+      "volume": 11729002
     }
   ],
   "OKB": [
     {
-      "price": 83.07,
-      "volume": 8825760
+      "price": 83.14,
+      "volume": 8722081
     },
     {
-      "price": 83.07,
-      "volume": 8825760
+      "price": 83.14,
+      "volume": 8722081
     }
   ],
   "USDF": [
     {
-      "price": 0.997467,
-      "volume": 243590
+      "price": 0.997633,
+      "volume": 372064
     },
     {
-      "price": 0.997467,
-      "volume": 243590
+      "price": 0.997633,
+      "volume": 372064
     }
   ],
   "SKY": [
     {
-      "price": 0.074067,
-      "volume": 9598905
+      "price": 0.073918,
+      "volume": 9396973
     },
     {
-      "price": 0.074067,
-      "volume": 9598905
-    }
-  ],
-  "ASTER": [
-    {
-      "price": 0.666265,
-      "volume": 49391962
-    },
-    {
-      "price": 0.666265,
-      "volume": 49391962
+      "price": 0.073918,
+      "volume": 9396973
     }
   ],
   "NEAR": [
     {
-      "price": 1.26,
-      "volume": 128786885
+      "price": 1.28,
+      "volume": 136673904
     },
     {
-      "price": 1.26,
-      "volume": 128786885
+      "price": 1.28,
+      "volume": 136673904
+    }
+  ],
+  "ASTER": [
+    {
+      "price": 0.665979,
+      "volume": 48832295
+    },
+    {
+      "price": 0.665979,
+      "volume": 48832295
     }
   ],
   "HTX": [
     {
-      "price": 0.00000172,
-      "volume": 14481361
+      "price": 0.00000173,
+      "volume": 14383003
     },
     {
-      "price": 0.00000172,
-      "volume": 14481361
+      "price": 0.00000173,
+      "volume": 14383003
     }
   ],
   "USDD": [
     {
-      "price": 0.999851,
-      "volume": 2290662
+      "price": 0.999683,
+      "volume": 2230089
     },
     {
-      "price": 0.999851,
-      "volume": 2290662
+      "price": 0.999683,
+      "volume": 2230089
     }
   ],
   "AAVE": [
     {
-      "price": 94.44,
-      "volume": 112683493
+      "price": 94.71,
+      "volume": 111796570
     },
     {
-      "price": 94.44,
-      "volume": 112683493
+      "price": 94.71,
+      "volume": 111796570
     }
   ],
   "PEPE": [
     {
-      "price": 0.00000337,
-      "volume": 144210464
+      "price": 0.00000341,
+      "volume": 149311536
     },
     {
-      "price": 0.00000337,
-      "volume": 144210464
+      "price": 0.00000341,
+      "volume": 149311536
     }
   ],
   "RLUSD": [
     {
       "price": 1,
-      "volume": 42907918
+      "volume": 42832407
     },
     {
       "price": 1,
-      "volume": 42907918
+      "volume": 42832407
+    }
+  ],
+  "ETC": [
+    {
+      "price": 8.73,
+      "volume": 73671721
+    },
+    {
+      "price": 8.73,
+      "volume": 73671721
     }
   ],
   "BGB": [
     {
       "price": 1.92,
-      "volume": 20638439
+      "volume": 20557529
     },
     {
       "price": 1.92,
-      "volume": 20638439
-    }
-  ],
-  "ETC": [
-    {
-      "price": 8.46,
-      "volume": 58543629
-    },
-    {
-      "price": 8.46,
-      "volume": 58543629
+      "volume": 20557529
     }
   ],
   "BFUSD": [
     {
-      "price": 0.999498,
-      "volume": 563739
+      "price": 0.999499,
+      "volume": 563947
     },
     {
-      "price": 0.999498,
-      "volume": 563739
+      "price": 0.999499,
+      "volume": 563947
     }
   ],
   "USDY": [
     {
-      "price": 1.12,
-      "volume": 313778
+      "price": 1.13,
+      "volume": 17804.51
     },
     {
-      "price": 1.12,
-      "volume": 313778
+      "price": 1.13,
+      "volume": 17804.51
     }
   ],
   "ICP": [
     {
       "price": 2.3,
-      "volume": 28470818
+      "volume": 28068427
     },
     {
       "price": 2.3,
-      "volume": 28470818
+      "volume": 28068427
     }
   ],
   "ONDO": [
     {
-      "price": 0.255709,
-      "volume": 29340485
+      "price": 0.25674,
+      "volume": 26487048
     },
     {
-      "price": 0.255709,
-      "volume": 29340485
+      "price": 0.25674,
+      "volume": 26487048
     }
   ],
   "JTRSY": [
@@ -592,41 +602,41 @@
   "GT": [
     {
       "price": 6.48,
-      "volume": 1501141
+      "volume": 1478593
     },
     {
       "price": 6.48,
-      "volume": 1501141
+      "volume": 1478593
     }
   ],
   "KCS": [
     {
-      "price": 8.01,
-      "volume": 3331781
+      "price": 8.02,
+      "volume": 3468180
     },
     {
-      "price": 8.01,
-      "volume": 3331781
-    }
-  ],
-  "ALGO": [
-    {
-      "price": 0.120101,
-      "volume": 146048844
-    },
-    {
-      "price": 0.120101,
-      "volume": 146048844
+      "price": 8.02,
+      "volume": 3468180
     }
   ],
   "QNT": [
     {
-      "price": 73.28,
-      "volume": 12466152
+      "price": 73.12,
+      "volume": 12403164
     },
     {
-      "price": 73.28,
-      "volume": 12466152
+      "price": 73.12,
+      "volume": 12403164
+    }
+  ],
+  "ALGO": [
+    {
+      "price": 0.119134,
+      "volume": 144303227
+    },
+    {
+      "price": 0.119134,
+      "volume": 144303227
     }
   ],
   "USTB": [
@@ -639,34 +649,34 @@
       "volume": 0
     }
   ],
-  "POL": [
-    {
-      "price": 0.092372,
-      "volume": 35054429
-    },
-    {
-      "price": 0.092372,
-      "volume": 35054429
-    }
-  ],
   "PUMP": [
     {
-      "price": 0.00166028,
-      "volume": 34115525
+      "price": 0.00166952,
+      "volume": 33869490
     },
     {
-      "price": 0.00166028,
-      "volume": 34115525
+      "price": 0.00166952,
+      "volume": 33869490
+    }
+  ],
+  "POL": [
+    {
+      "price": 0.092675,
+      "volume": 35464562
+    },
+    {
+      "price": 0.092675,
+      "volume": 35464562
     }
   ],
   "RENDER": [
     {
-      "price": 1.87,
-      "volume": 52658110
+      "price": 1.88,
+      "volume": 51284992
     },
     {
-      "price": 1.87,
-      "volume": 52658110
+      "price": 1.88,
+      "volume": 51284992
     }
   ]
 }

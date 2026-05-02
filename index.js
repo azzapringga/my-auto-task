@@ -75,9 +75,9 @@ async function analyze() {
         const prev = history[history.length - 1];
         const change = ((priceUSD - prev.price)/prev.price)*100;
 
-        if (change >= 0.3 && change < 1) { label = "EARLY PUMP"; emoji = "🟢"; }
-        else if (change >= 1 && change < 3) { label = "BREAKOUT"; emoji = "🚀"; }
-        else if (change >= 3) { label = "BIG PUMP"; emoji = "🔥"; }
+        if (change >= 2 && change < 4) { label = "EARLY PUMP"; emoji = "🟢"; }
+        else if (change >= 4 && change < 7) { label = "BREAKOUT"; emoji = "🚀"; }
+        else if (change >= 7) { label = "BIG PUMP"; emoji = "🔥"; }
 
         if (label) {
           signals.push({ symbol, price: priceIDR, change: change.toFixed(2), emoji });
